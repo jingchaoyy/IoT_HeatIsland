@@ -21,7 +21,7 @@ import branca.colormap as cm
 # """
 #
 # df_geo = bq.Query(SQL).to_dataframe(dialect='standard')
-df_geo = pd.read_csv('../results-20190226-150015.csv')
+df_geo = pd.read_csv('../dataSample/GA17-20190311-123402.csv')
 print(df_geo)
 
 magnitudes = pd.DataFrame(df_geo['Temperature'], columns=['Temperature'])
@@ -51,7 +51,7 @@ for index, row in df_geo.iterrows():
 
     polygons_out['features'].append(feature)
 
-magnitudes.to_csv('../output/magnitudes_polygons.csv', index_label='id')
+magnitudes.to_csv('../output/magnitudes_polygons17.csv', index_label='id')
 
 loclat = df_geo['sw_lat'].mean()
 loclon = df_geo['sw_lon'].mean()
@@ -61,7 +61,7 @@ colorList.reverse()
 linear = cm.LinearColormap(colorList, vmin=df_geo['Temperature'].min(), vmax=df_geo['Temperature'].max())
 linear = linear.to_step(17)
 
-magnitudes = pd.read_csv('../output/magnitudes_polygons.csv')
+magnitudes = pd.read_csv('../output/magnitudes_polygons17.csv')
 magnitudes['Temperature'] = magnitudes['Temperature'].apply(lambda x: round(x * 2) / 2)
 mags_dict = magnitudes.set_index('id')['Temperature']
 
@@ -77,4 +77,4 @@ folium.GeoJson(
     }
 ).add_to(m)
 
-m.save('../output/whitepaper.html')
+m.save('../output/AtlantaETC17.html')

@@ -1,5 +1,6 @@
 .idea/
 venv/
-IoT-UrbanInfo-f202ef7b61db.json
+*.json
 output/
+dataSample/
 *.csv

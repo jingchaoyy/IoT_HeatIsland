@@ -8,10 +8,9 @@ import datetime
 import numpy as np
 import datalab.bigquery as bq
 import pandas as pd
-
 import os
 
-# os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "../IoT-UrbanInfo-f202ef7b61db.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "..\\geotab-intelligence-4a49636c730a.json"
 
 # SQL = """
 #       SELECT LocalDate, LocalHour, AVG(Temperature_C) as AvgTemperature
@@ -23,7 +22,7 @@ import os
 # """
 #
 # df = bq.Query(SQL).to_dataframe(dialect='standard')
-df = pd.read_csv('../results-20190226-143739.csv')
+df = pd.read_csv('../dataSample/Atlanta-20190311-122351.csv')
 print(df)
 
 
