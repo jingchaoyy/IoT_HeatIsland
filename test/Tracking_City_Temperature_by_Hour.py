@@ -7,23 +7,37 @@ import matplotlib.dates as mdates
 import datetime
 import numpy as np
 import datalab.bigquery as bq
+from google.cloud import bigquery
 import pandas as pd
 import os
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "..\\geotab-intelligence-4a49636c730a.json"
+client = bigquery.Client()
 
-# SQL = """
-#       SELECT LocalDate, LocalHour, AVG(Temperature_C) as AvgTemperature
-#         FROM `geotab-public-intelligence.Weather.Temperature`
-#        WHERE State LIKE 'North Carolina'
-#          AND City LIKE 'Charlotte'
-#        GROUP BY LocalDate, LocalHour
-#        ORDER BY LocalDate, LocalHour
-# """
-#
-# df = bq.Query(SQL).to_dataframe(dialect='standard')
-df = pd.read_csv('../dataSample/Atlanta-20190311-122351.csv')
-print(df)
+SQL = """
+        SELECT LocalDate, LocalHour, AVG(Temperature_C) as AvgTemperature
+        FROM `geotab-intelligence.Weather.Temperature`
+        WHERE State LIKE 'North Carolina'
+        AND City LIKE 'Charlotte'
+        GROUP BY LocalDate, LocalHour
+        ORDER BY LocalDate, LocalHour
+"""
+query_job = client.query(
+    SQL,
+    # Location must match that of the dataset(s) referenced in the query.
+    # location="US",
+)
+
+# for row in query_job:  # API request - fetches results
+#     # Row values can be accessed by field name or index
+#     # assert row[0] == row.name == row["name"]
+#     print(row)
+df = query_job.to_dataframe()
+
+# # df = bq.Query(SQL).to_dataframe(dialect='standard')
+# df1 = pd.read_csv('../dataSample/Atlanta-20190311-122351.csv')
+print(df.dtypes)
+# print(df1.dtypes)
 
 
 def temperature_plot(date, hour, temperature):
@@ -55,5 +69,5 @@ def temperature_plot(date, hour, temperature):
     return plt
 
 
-a = temperature_plot(df['LocalDate'], df['LocalHour'], df['AvgTemperature'])
+a = temperature_plot(df['LocalDate'].astype('str'), df['LocalHour'].astype('int64'), df['AvgTemperature'])
 a.show()
