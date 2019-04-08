@@ -4,3 +4,4 @@ venv/
 output/
 dataSample/
 *.csv
+dataHarvest*
