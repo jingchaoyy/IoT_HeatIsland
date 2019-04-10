@@ -5,3 +5,5 @@ output/
 dataSample/
 *.csv
 dataHarvest*
+gcn
+keras-gcn
