@@ -17,8 +17,8 @@ client = bigquery.Client()
 SQL = """
         SELECT LocalDate, LocalHour, AVG(Temperature_C) as AvgTemperature
         FROM `geotab-intelligence.Weather.Temperature`
-        WHERE State LIKE 'North Carolina'
-        AND City LIKE 'Charlotte'
+        WHERE State LIKE 'Illinois'
+        AND City LIKE 'Chicago'
         GROUP BY LocalDate, LocalHour
         ORDER BY LocalDate, LocalHour
 """

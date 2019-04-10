@@ -4,25 +4,33 @@ Created on  2/26/2019
 
 code sample: https://data.geotab.com/weather/temperature
 """
-import datalab.bigquery as bq
+# import datalab.bigquery as bq
+from google.cloud import bigquery
 import pandas as pd
 import folium
 import branca.colormap as cm
+import os
 
-# SQL = """
-# SELECT Latitude_SW as sw_lat, Longitude_SW as sw_lon, Latitude_NE as ne_lat, Longitude_NE as ne_lon, Temperature_C as Temperature
-#   FROM `geotab-public-intelligence.Weather.Temperature`
-#  WHERE (State LIKE 'Ontario')
-#    AND (City LIKE 'Toronto'
-#     OR City LIKE 'Mississauga'
-#     OR City LIKE 'Brampton'
-#     OR City LIKE 'Etobicoke')
-#    AND LocalHour = '14'
-# """
-#
-# df_geo = bq.Query(SQL).to_dataframe(dialect='standard')
-df_geo = pd.read_csv('../dataSample/GA17-20190311-123402.csv')
-print(df_geo)
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "..\\geotab-intelligence-4a49636c730a.json"
+client = bigquery.Client()
+
+SQL = """
+SELECT Latitude_SW as sw_lat, Longitude_SW as sw_lon, Latitude_NE as ne_lat, Longitude_NE as ne_lon, Temperature_C as Temperature
+  FROM `geotab-intelligence.Weather.Temperature`
+ WHERE (State LIKE 'Illinois')
+   AND (City LIKE 'Chicago')
+   AND LocalHour = '14'
+"""
+
+query_job = client.query(
+    SQL,
+    # Location must match that of the dataset(s) referenced in the query.
+    # location="US",
+)
+# print(query_job)
+df_geo = query_job.to_dataframe()
+# df_geo = pd.read_csv('../dataSample/GA17-20190311-123402.csv')
+# print(df_geo)
 
 magnitudes = pd.DataFrame(df_geo['Temperature'], columns=['Temperature'])
 polygons_out = {'type': 'FeatureCollection', 'features': []}
@@ -51,7 +59,7 @@ for index, row in df_geo.iterrows():
 
     polygons_out['features'].append(feature)
 
-magnitudes.to_csv('../output/magnitudes_polygons17.csv', index_label='id')
+magnitudes.to_csv('../output/chicago_magnitudes_polygons14.csv', index_label='id')
 
 loclat = df_geo['sw_lat'].mean()
 loclon = df_geo['sw_lon'].mean()
@@ -61,7 +69,7 @@ colorList.reverse()
 linear = cm.LinearColormap(colorList, vmin=df_geo['Temperature'].min(), vmax=df_geo['Temperature'].max())
 linear = linear.to_step(17)
 
-magnitudes = pd.read_csv('../output/magnitudes_polygons17.csv')
+magnitudes = pd.read_csv('../output/chicago_magnitudes_polygons14.csv')
 magnitudes['Temperature'] = magnitudes['Temperature'].apply(lambda x: round(x * 2) / 2)
 mags_dict = magnitudes.set_index('id')['Temperature']
 
@@ -77,4 +85,4 @@ folium.GeoJson(
     }
 ).add_to(m)
 
-m.save('../output/AtlantaETC17.html')
+m.save('../output/Chicago14.html')
