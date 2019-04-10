@@ -4,6 +4,6 @@ venv/
 output/
 dataSample/
 *.csv
-dataHarvest*
+dataHarvest_*
 gcn
 keras-gcn
