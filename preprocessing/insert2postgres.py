@@ -1,0 +1,68 @@
+"""
+Created on 3/30/2019
+@author: Jingchao Yang
+"""
+
+import csv
+import psycopg2.extras
+
+tb_in_Name = 'sensorData_Chicago_all'
+fileName = 'D:\\IoT_HeatIsland\\AoT_data\\arrayOfThings_Chicago\\zzLatest\\AoT_Chicago.complete.latest\\AoT_Chicago.complete.2019-03-30\\data.csv\\data.csv'
+
+try:
+    conn = psycopg2.connect("dbname='arrayOfThings' user='postgres' host='localhost' password='123456'")
+except:
+    print("I am unable to connect to the database")
+
+cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+try:
+    cur.execute("drop table " + tb_in_Name)
+    conn.commit()
+    print("drop table succeeded " + tb_in_Name)
+except:
+    print("drop table failed " + tb_in_Name)
+    conn.rollback()  # when command fail, the transaction will be aborted and no further command will be executed
+    # until a call to the rollback(). This except will prevent such abort when table is new and cannot be found and drop
+
+try:
+    cur.execute("create table " + tb_in_Name + "("
+                                               "eID int PRIMARY KEY NOT NULL,"
+                                               "timestamp Text,"
+                                               "node_id Text,"
+                                               "sensor Text,"
+                                               "parameter Text,"
+                                               "value_hrf double precision"
+                                               ");")
+    conn.commit()
+    print("create table succeeded " + tb_in_Name)
+except:
+    print("create table failed " + tb_in_Name)
+
+sql = "insert into " + tb_in_Name + " values (%s, %s, %s, %s, %s, %s)"
+
+with open(fileName, newline='') as csvfile:
+    csvreader = csv.reader(csvfile)
+    next(csvreader)
+    count = 0
+    for row in csvreader:
+        timestamp = row[0]
+        node_id = row[1]
+        sensor = row[3]
+        parameter = row[4]
+        # if parameter == 'temperature':
+        try:
+            value_hrf = float(row[6])
+            data = (count, timestamp, node_id, sensor, parameter, value_hrf)
+
+            try:
+                cur.execute(sql, data)
+                conn.commit()
+            except:
+                print("I can't insert into " + tb_in_Name)
+
+            count += 1
+        except:
+            print('skip record:', ', '.join(row))
+
+conn.close()
