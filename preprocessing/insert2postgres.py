@@ -6,7 +6,7 @@ Created on 3/30/2019
 import csv
 import psycopg2.extras
 
-tb_in_Name = 'sensorData_Chicago_all'
+tb_in_Name = 'sensorData_Chicago_all2'
 fileName = 'D:\\IoT_HeatIsland\\AoT_data\\arrayOfThings_Chicago\\zzLatest\\AoT_Chicago.complete.latest\\AoT_Chicago.complete.2019-03-30\\data.csv\\data.csv'
 
 try:
@@ -28,10 +28,11 @@ except:
 try:
     cur.execute("create table " + tb_in_Name + "("
                                                "eID int PRIMARY KEY NOT NULL,"
-                                               "timestamp Text,"
+                                               "timestamp TIMESTAMP,"
                                                "node_id Text,"
                                                "sensor Text,"
                                                "parameter Text,"
+                                               "value_row double precision,"
                                                "value_hrf double precision"
                                                ");")
     conn.commit()
@@ -39,7 +40,7 @@ try:
 except:
     print("create table failed " + tb_in_Name)
 
-sql = "insert into " + tb_in_Name + " values (%s, %s, %s, %s, %s, %s)"
+sql = "insert into " + tb_in_Name + " values (%s, %s, %s, %s, %s, %s, %s)"
 
 with open(fileName, newline='') as csvfile:
     csvreader = csv.reader(csvfile)
@@ -52,8 +53,15 @@ with open(fileName, newline='') as csvfile:
         parameter = row[4]
         # if parameter == 'temperature':
         try:
-            value_hrf = float(row[6])
-            data = (count, timestamp, node_id, sensor, parameter, value_hrf)
+            try:
+                value_row = float(row[5])
+            except:
+                value_row = None
+            try:
+                value_hrf = float(row[6])
+            except:
+                value_hrf = None
+            data = (count, timestamp, node_id, sensor, parameter, value_row, value_hrf)
 
             try:
                 cur.execute(sql, data)
