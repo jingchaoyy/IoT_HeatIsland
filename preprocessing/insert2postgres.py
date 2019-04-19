@@ -6,8 +6,8 @@ Created on 3/30/2019
 import csv
 import psycopg2.extras
 
-tb_in_Name = 'sensorData_Chicago_all2'
-fileName = 'D:\\IoT_HeatIsland\\AoT_data\\arrayOfThings_Chicago\\zzLatest\\AoT_Chicago.complete.latest\\AoT_Chicago.complete.2019-03-30\\data.csv\\data.csv'
+tb_in_Name = 'sensordata_chicago_201808'
+fileName = 'D:\\IoT_HeatIsland\AoT_data\\arrayOfThings_Chicago\\chicago-complete.monthly.2018-08-01-to-2018-08-31\\data.csv\\data.csv'
 
 try:
     conn = psycopg2.connect("dbname='arrayOfThings' user='postgres' host='localhost' password='123456'")
@@ -43,34 +43,37 @@ except:
 sql = "insert into " + tb_in_Name + " values (%s, %s, %s, %s, %s, %s, %s)"
 
 with open(fileName, newline='') as csvfile:
-    csvreader = csv.reader(csvfile)
+    csvreader = csv.reader((line.replace('\0', '') for line in csvfile))
     next(csvreader)
     count = 0
     for row in csvreader:
-        timestamp = row[0]
-        node_id = row[1]
-        sensor = row[3]
-        parameter = row[4]
-        # if parameter == 'temperature':
         try:
+            timestamp = row[0]
+            node_id = row[1]
+            sensor = row[3]
+            parameter = row[4]
+            # if parameter == 'temperature':
             try:
-                value_row = float(row[5])
-            except:
-                value_row = None
-            try:
-                value_hrf = float(row[6])
-            except:
-                value_hrf = None
-            data = (count, timestamp, node_id, sensor, parameter, value_row, value_hrf)
+                try:
+                    value_row = float(row[5])
+                except:
+                    value_row = None
+                try:
+                    value_hrf = float(row[6])
+                except:
+                    value_hrf = None
+                data = (count, timestamp, node_id, sensor, parameter, value_row, value_hrf)
 
-            try:
-                cur.execute(sql, data)
-                conn.commit()
-            except:
-                print("I can't insert into " + tb_in_Name)
+                try:
+                    cur.execute(sql, data)
+                    conn.commit()
+                except:
+                    print("I can't insert into " + tb_in_Name)
 
-            count += 1
+                count += 1
+            except:
+                print('skip record:', ', '.join(row))
         except:
-            print('skip record:', ', '.join(row))
+            print('NA row value', row)
 
 conn.close()
