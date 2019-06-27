@@ -22,6 +22,7 @@ def weight_matrix(coors, sigma2=0.1, epsilon=0.5):
     # building distance matrix
     W = pd.DataFrame(distance_matrix(coors.values, coors.values), index=coors.index, columns=coors.index)
     print('Distance Matrix Built:', W.shape)
+    W.to_csv('./matrix/distanceMatrix.csv')
 
     n = W.shape[0]
     # W = W / 10000.
@@ -38,4 +39,5 @@ uni = pd.read_csv(file)
 uni_coor = uni[['Latitude_SW', 'Longitude_SW']]
 # print(uni_coor)
 
-weight_matrix(uni_coor)
+W_matrix = weight_matrix(uni_coor)
+W_matrix.to_csv('./matrix/weightedMatrix.csv')
