@@ -22,13 +22,21 @@ def my_csv_reader(path):
     return temp
 
 
-path = './interpolated/0527_0531/'
+path = '../data/NYC/dataHarvest_NYC/processed/interpolated/0527_0531/'
 files = glob.glob(path + '*.csv')
 lsorted = sorted(files)  # sort by date
 print(lsorted)
 
+'''2D matrix (sensor * time)'''
 df = pd.concat([my_csv_reader(f) for f in lsorted], axis=1, join='inner')
 print(df)
-# reorganize to hour * day * sensor
+
+'''2D matrix (time * sensor)'''
+df1_transposed = df.T
+print(df1_transposed)
+# df1_transposed.to_csv('tempRecord_byCol.csv')
+
+'''reorganize to hour * day * sensor'''
 stack_by_row = df.stack()
-stack_by_row.to_csv('tempRecord.csv')
+print(stack_by_row)
+# stack_by_row.to_csv('tempRecord.csv')
