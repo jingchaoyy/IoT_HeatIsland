@@ -18,10 +18,18 @@ from keras.layers.convolutional import Conv1D
 from keras.layers.convolutional import MaxPooling1D
 from keras.layers import TimeDistributed
 from keras.layers import LSTM
+import pandas as pd
 
 # define dataset
-X = array(input.X)
-y = array(input.y)
+temp = pd.read_csv("tempRecord_byCol_test.csv")
+col_name = '0'
+temp_s0 = temp[col_name]
+
+input_number, output_num = 4, 1
+X, y, Xy = input.to_timeseries(temp_s0, input_number, output_num)
+X = array(X)
+y = array(y)
+print(Xy)
 
 # reshape from [samples, timesteps] into [samples, subsequences, timesteps, features]
 X = X.reshape((X.shape[0], 2, 2, 1))
@@ -36,7 +44,7 @@ model.compile(optimizer='adam', loss='mse')
 # fit model
 model.fit(X, y, epochs=1000, verbose=0)
 # demonstrate prediction
-x_input = array([37, 52, 48, 55])
+x_input = array([63.4, 62.2, 65.1, 64.7])
 x_input = x_input.reshape((1, 2, 2, 1))
 yhat = model.predict(x_input, verbose=0)
 print(yhat)
