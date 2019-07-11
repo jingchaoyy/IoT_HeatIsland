@@ -2,28 +2,28 @@
 Created on  2019-07-06
 @author: Jingchao Yang
 """
-import pandas as pd
+from numpy import array
 
 
-def to_timeseries(data, ip_num, op_num):
+def split_sequence(sequence, n_steps_in, n_steps_out):
     """
 
-    :param data: time series data
-    :param ip_num: the number of inputs for prediction, for example: [10, 20, 30] as input and [40] as output
-    :param op_num: expected number of predicted outputs
+    :param sequence: e.g., [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    :param n_steps_in: 3, e.g., [10, 20, 30]
+    :param n_steps_out: 2, e.g., [40, 50]
     :return:
     """
-    X_ans = []
-    Y_ans = []
-    for i in range(len(data) - ip_num - op_num + 1):
-        try:
-            X = list(data)[i:i + ip_num]
-            Y = list(data)[i + ip_num: i + ip_num + op_num]
-            X_ans.append(X)
-            Y_ans.append(Y)
-            in_ = pd.DataFrame([str(x) for x in X_ans], columns=['input'])
-            out = pd.DataFrame([str(x) for x in Y_ans], columns=['output'])
-        except:
-            print('skip the last pair')
-    ans_1 = pd.concat([in_, out], axis=1)
-    return X_ans, Y_ans, ans_1
+    X, y = list(), list()
+    for i in range(len(sequence)):
+        # find the end of this pattern
+        end_ix = i + n_steps_in
+        out_end_ix = end_ix + n_steps_out
+        # check if we are beyond the sequence
+        if out_end_ix > len(sequence):
+            break
+        # gather input and output parts of the pattern
+        seq_x, seq_y = sequence[i:end_ix], sequence[end_ix:out_end_ix]
+        print(seq_x, seq_y)
+        X.append(seq_x)
+        y.append(seq_y)
+    return array(X), array(y)
