@@ -29,6 +29,7 @@ def main():
         print("Directory ", processed_dir + "interpolated", " already exists")
 
     interpolated_dir = processed_dir + "interpolated/"
+    result_matrix = "../../IoT_HeatIsland_Data/data/" + loc + "/tempMatrix_" + loc + ".csv"
 
     # collecting all possible sensor locations
     dir = glob.glob(harvested_temp_dir + '*.csv')
@@ -71,7 +72,7 @@ def main():
     '''2D matrix (time * sensor)'''
     df1_transposed = df.T
     print(df1_transposed)
-    df1_transposed.to_csv('tempMatrix_LA.csv')
+    df1_transposed.to_csv(result_matrix)
 
     '''reorganize to hour * day * sensor'''
     # stack_by_row = df.stack()
