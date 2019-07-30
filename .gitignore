@@ -10,3 +10,4 @@ keras-gcn
 data
 dataHarvest/Tracking_City_Temperature_by_Hour.py
 *.html
+*.txt
