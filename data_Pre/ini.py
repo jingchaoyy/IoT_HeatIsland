@@ -32,6 +32,7 @@ def main():
     result_matrix = "../../IoT_HeatIsland_Data/data/" + loc + "/tempMatrix_" + loc + ".csv"
 
     # collecting all possible sensor locations
+    print('\nstart collecting unique sensors from all records')
     dir = glob.glob(harvested_temp_dir + '*.csv')
     print(dir, '\ntotal harvested files', len(dir))
     all_nodes = utils.uniNodes(dir)
@@ -51,7 +52,9 @@ def main():
     count = 1
     for i in range(size):
         f = file_list[i]
-        fname = f.split('/')[-1]
+        # fname = f.split('/')[-1]
+        head, tail = os.path.split(f)
+        fname = tail
         print(fname, str(count) + '/' + str(size))
         result = utils.ordinary_kriging(f, uniNodes_dir)
         result.to_csv(interpolated_dir + 'int-' + fname)
