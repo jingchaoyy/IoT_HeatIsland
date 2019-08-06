@@ -6,7 +6,8 @@ import os
 import glob
 import data_Pre.geotab_utils as utils
 import pandas as pd
-
+import threading
+import time
 
 def main():
     # setting basic environment
@@ -60,6 +61,34 @@ def main():
         result.to_csv(interpolated_dir + 'int-' + fname)
         print('success')
         count += 1
+
+    # multi thread interpolation
+    # def interpolation_job(file_list, thread_no):
+    #     count = 1
+    #     size = len(file_list)
+    #     for i in range(size):
+    #         f =file_list[i]
+    #         head, tail = os.path.split(f)
+    #         fname = tail
+    #         print(fname, str(count) + '/' + str(size))
+    #         result = utils.ordinary_kriging(f, uniNodes_dir)
+    #         result.to_csv(interpolated_dir + 'int-' + fname)
+    #         print('Thread No.%s, progressed %s / %s' % (thread_no, count, size))
+    #         count += 1
+    #
+    # # Define numbers of Threads and split the file list evenly according to thread_num
+    # thread_num = 1
+    # file_list = glob.glob(processed_dir + '2019*.csv')
+    # file_num_each_thread = (len(file_list)//thread_num)+1
+    # file_list_splits = [file_list[i:i+file_num_each_thread] for i in range(0,len(file_list),file_num_each_thread)]
+    #
+    # thread_list=[]
+    # for i in range(thread_num):
+    #     t = threading.Thread(target=interpolation_job,name='interpolation_job'+str(i),args=(file_list_splits[i],i))
+    #     thread_list.append(t)
+    #
+    # for t in thread_list:
+    #     t.start()
 
     # build m*n temp matrix (m:hour(time), n:sensors)
     print('\n##### start building temp matrix #####')
