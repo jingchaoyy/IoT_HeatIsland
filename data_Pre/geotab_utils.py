@@ -56,6 +56,16 @@ def datehour_split(infile, out_path):
         g.to_csv(out_path + fname + '.csv')
 
 
+def anomaly_detect(file):
+    """
+
+    :param file:
+    :return:
+    """
+
+
+
+
 def ordinary_kriging(file, target_file):
     """
     data = np.array([[0.3, 1.2, 0.47],

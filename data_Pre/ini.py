@@ -9,27 +9,37 @@ import pandas as pd
 import threading
 import time
 
+
 def main():
     # setting basic environment
     loc = "NYC"
     harvested_temp_dir = "../../IoT_HeatIsland_Data/data/" + loc + "/dataHarvest_" + loc + "/"
-    try:
-        # Create target Directory
-        os.mkdir(harvested_temp_dir + "processed")
-        print("Directory ", harvested_temp_dir + "processed", " Created ")
-    except FileExistsError:
-        print("Directory ", harvested_temp_dir + "processed", " already exists")
-
     processed_dir = harvested_temp_dir + "processed/"
-    uniNodes_dir = processed_dir + "uniqueNodes.csv"
     try:
         # Create target Directory
-        os.mkdir(processed_dir + "interpolated")
-        print("Directory ", processed_dir + "interpolated", " Created ")
+        os.mkdir(processed_dir)
+        print("Directory ", processed_dir, " Created ")
     except FileExistsError:
-        print("Directory ", processed_dir + "interpolated", " already exists")
+        print("Directory ", processed_dir, " already exists")
 
-    interpolated_dir = processed_dir + "interpolated/"
+    uniNodes_dir = processed_dir + "uniqueNodes.csv"
+    anomaly_dir = processed_dir + "anomalyRM_" + loc
+    try:
+        # Create target Directory
+
+        os.mkdir(anomaly_dir)
+        print("Directory ", anomaly_dir, " Created ")
+    except FileExistsError:
+        print("Directory ", anomaly_dir, " already exists")
+
+    interpolated_dir = processed_dir + "interpolated/" + loc
+    try:
+        # Create target Directory
+        os.mkdir(interpolated_dir)
+        print("Directory ", interpolated_dir, " Created ")
+    except FileExistsError:
+        print("Directory ", interpolated_dir, " already exists")
+
     result_matrix = "../../IoT_HeatIsland_Data/data/" + loc + "/tempMatrix_" + loc + ".csv"
 
     # collecting all possible sensor locations
@@ -45,6 +55,21 @@ def main():
     for f in filePath:
         print('\n', f)
         utils.datehour_split(f, processed_dir)
+
+    # anomaly detection
+    # file_list = glob.glob(processed_dir + '2019*.csv')
+    # size = len(file_list)
+    #
+    # count = 1
+    # for i in range(size):
+    #     f = file_list[i]
+    #     head, tail = os.path.split(f)
+    #     fname = tail
+    #     print(fname, str(count) + '/' + str(size))
+    #     result = utils.anomaly_detect(f)
+    #     result.to_csv(anomaly_dir + 'ano-' + fname)
+    #     print('success')
+    #     count += 1
 
     # interpolation
     file_list = glob.glob(processed_dir + '2019*.csv')
