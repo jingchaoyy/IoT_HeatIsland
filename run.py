@@ -10,18 +10,29 @@ import matplotlib.pyplot as plt
 from core.data_processor import DataLoader
 from core.model import Model
 import datetime as dt
-
 from keras.preprocessing import sequence
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation
 from keras.layers import Embedding
 from keras.layers import LSTM
-from keras.layers import Conv1D, MaxPooling1D
 from keras.utils.vis_utils import plot_model
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from numpy import newaxis
 import numpy as np
 from keras.layers import Masking
+from keras.layers.convolutional import Conv2D
+from keras.layers.convolutional import MaxPooling2D
+from keras.layers import Flatten
+from keras.layers import TimeDistributed
+
+
+def plot_results(predicted_data, true_data):
+    fig = plt.figure(facecolor='white')
+    ax = fig.add_subplot(111)
+    ax.plot(true_data, label='True Data')
+    plt.plot(predicted_data, label='Prediction')
+    plt.legend()
+    plt.show()
 
 
 def plot_results_multiple(predicted_data, true_data, prediction_len):
@@ -50,6 +61,14 @@ def predict_sequences_multiple(in_model, test_data, window_size, prediction_len)
             curr_frame = np.insert(curr_frame, [window_size - 2], predicted[-1], axis=0)
         prediction_seqs.append(predicted)
     return prediction_seqs
+
+
+def predict_point_by_point(in_model, data):
+    # Predict each timestep given the last sequence of true data, in effect only predicting 1 step ahead each time
+    print('[Model] Predicting Point-by-Point...')
+    predicted = in_model.predict(data)
+    predicted = np.reshape(predicted, (predicted.size,))
+    return predicted
 
 
 def main():
@@ -108,18 +127,22 @@ def main():
     )
     model.save(save_fname)
 
+    '''next n time-stamp prediction'''
     predictions = predict_sequences_multiple(model, x_test, configs['data']['sequence_length'],
-                                             configs['data']['sequence_length'])
+                                             configs['data']['prediction_length'])
+    '''next single time-stamp prediction'''
+    # predictions = predict_point_by_point(model, x_test)
 
     for yt in range(len(y_test)):
         nor = test_nor[yt]
         y_test[yt][0] = nor * (y_test[yt][0] + 1)
 
     for prdt in range(len(predictions)):
-        nor_ = test_nor[prdt * configs['data']['sequence_length']]
+        nor_ = test_nor[prdt * configs['data']['prediction_length']]
         predictions[prdt] = [nor_ * (j + 1) for j in predictions[prdt]]
 
-    plot_results_multiple(predictions, y_test, configs['data']['sequence_length'])
+    plot_results_multiple(predictions, y_test, configs['data']['prediction_length'])
+    # plot_results(predictions, y_test)
 
     # model = Model()
     # model.build_lstm(configs)
