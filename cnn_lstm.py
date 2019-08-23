@@ -84,8 +84,7 @@ def get_data(data, seq_len, normalise):
         data_windows.append(data[:, :, i:i + seq_len])
 
     data_windows = np.array(data_windows).astype(float)
-    data_windows, data_normalizers = normalise_windows(data_windows,
-                                                       single_window=False) if normalise else data_windows
+    data_windows, data_normalizers = normalise_windows(data_windows, single_window=False, norm=normalise)
 
     x = data_windows[:, :-1]
     y = data_windows[:, -1]
@@ -94,7 +93,7 @@ def get_data(data, seq_len, normalise):
     return x, y, temp_normalizers
 
 
-def normalise_windows(window_data, single_window=False):
+def normalise_windows(window_data, single_window=False, norm=True):
     '''Normalise window with a base value of zero'''
     normalised_data, all_normalizers = [], []
     window_data = [window_data] if single_window else window_data
@@ -104,7 +103,10 @@ def normalise_windows(window_data, single_window=False):
             # normalised_col = [((float(p) / float(window[0, col_i])) - 1) for p in window[:, col_i]]
             normalised = []
             curr_window = window[:, :, col_i]
-            normalizer = curr_window[0, 0]
+            if norm == True:
+                normalizer = curr_window[0, 0]
+            else:
+                normalizer = 1
             for q in curr_window:
                 nor_col = []
                 for p in q:
@@ -140,7 +142,7 @@ def main():
             '9q5cseg',
             '9q5cseu', '9q5csev', '9q5cs7x', '9q5cse8', '9q5xxxx', '9q5csed', '9q5csee', '9q5cses', '9q5cset']
 
-    data = pd.read_csv('/Users/jc/Documents/GitHub/IoT_HeatIsland_Data/data/LA/joined_49_fillna_1.csv', usecols=coor)
+    data = pd.read_csv('../data/joined_49_fillna_1.csv', usecols=coor)
     for c in range(len(coor)):
         coor[c] = data[coor[c]]
 
