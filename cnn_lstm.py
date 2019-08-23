@@ -89,6 +89,7 @@ def get_data(data, seq_len, normalise):
 
     x = data_windows[:, :-1]
     y = data_windows[:, -1]
+    y = y[:, [int(y.shape[1] / 2)], [int(y.shape[-1] / 2)]]
 
     temp_normalizers = data_normalizers[:, 0]
     return x, y, temp_normalizers
