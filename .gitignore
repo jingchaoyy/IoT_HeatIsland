@@ -13,3 +13,4 @@ dataHarvest/Tracking_City_Temperature_by_Hour.py
 *.txt
 saved_models
 *.png
+*.bak
