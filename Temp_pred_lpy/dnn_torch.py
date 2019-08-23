@@ -8,9 +8,11 @@ import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader,Dataset,TensorDataset
 import numpy as np
+from Temp_pred_lpy.data_helper import *
 
 # Device configuration
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cpu')
 print('device using:',device)
 
 # Hyper-parameters
@@ -21,7 +23,6 @@ num_classes = 1
 num_epochs = 8
 batch_size = 16
 learning_rate = 0.003
-from data_helper import *
 
 # MNIST dataset
 # train_dataset = torchvision.datasets.MNIST(root='data',
@@ -39,6 +40,7 @@ train_x,train_y,test_x,test_y=gen_train_and_test_data(shuffle=True,
 train_x = torch.from_numpy(train_x[:train_x.shape[0]-train_x.shape[0]%batch_size])
 train_y_plot = train_y
 train_y = torch.from_numpy(train_y[:train_x.shape[0]-train_x.shape[0]%batch_size])
+test_x_plot = test_x
 test_x = torch.from_numpy(test_x[:test_x.shape[0]-test_x.shape[0]%batch_size])
 test_y_plot = test_y
 test_y = torch.from_numpy(test_y[:test_x.shape[0]-test_x.shape[0]%batch_size])
@@ -110,7 +112,8 @@ with torch.no_grad():
             pred = np.append(pred,outputs.numpy())
     print(pred)
 
-plot_results(pred,test_y_plot)
+# plot_results(pred,test_y_plot)
+plot_results_multiple(test_x_plot,test_y_plot,20,model,'torch_dnn')
 # Test the model
 # In test phase, we don't need to compute gradients (for memory efficiency)
 # with torch.no_grad():

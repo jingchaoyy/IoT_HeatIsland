@@ -1,5 +1,5 @@
 import xgboost as xgb
-from data_helper import *
+from Temp_pred_lpy.data_helper import *
 
 train_x,train_y,test_x,test_y=gen_train_and_test_data(shuffle=True,
                                                       cut_bin=False,
@@ -13,4 +13,4 @@ param = {'max_depth': 5, 'eta': 0.01, 'silent': 1, 'objective': 'reg:linear','nu
 bst = xgb.train(param, data_train, num_boost_round=1400, evals=watch_list)
 y_pred = bst.predict(data_test)
 # plot_results(y_pred,test_y)
-plot_results_multiple(test_x,test_y,18,bst,is_for_xgb=True)
+plot_results_multiple(test_x,test_y,18,bst,model_type='xgboost')

@@ -3,6 +3,7 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 import xgboost as xgb
+import torch
 
 
 def gen_train_and_test_data(csv_path='./df2.csv', input_length=100,
@@ -75,35 +76,45 @@ def plot_results(predicted_data, true_data):
     plt.show()
 
 
-def plot_results_multiple(test_x, true_data, prediction_len,model,is_for_xgb=False):
+def plot_results_multiple(test_x, test_y, prediction_len, model, model_type):
+    assert model_type in ['gbdt','xgboost','torch_dnn']
     fig = plt.figure(facecolor='white')
     ax = fig.add_subplot(111)
-    ax.plot(true_data, label='True Data')
+    ax.plot(test_y, label='True Data')
     pred_multiple_all = []
     for i in range(test_x.shape[0]//prediction_len):
         pred_multiple = []
         current_x = test_x[i*prediction_len]
         for j in range(prediction_len):
             if j == 0:
-                if is_for_xgb:
+                if model_type == 'xgboost':
                     current_x_xgb = xgb.DMatrix([current_x])
                     pred_multiple.append(model.predict(current_x_xgb))
-                else:
+                if model_type == 'gbdt':
                     pred_multiple.append(model.predict([current_x]))
+                if model_type == 'torch_dnn':
+                    with torch.no_grad():
+                        pred_torch = model(torch.from_numpy(current_x).float()).numpy()
+                    pred_multiple.append(pred_torch)
             else:
                 current_x = np.delete(current_x, 0)
                 current_x = np.append(current_x, pred_multiple[-1])
-                if is_for_xgb:
+                if model_type == 'xgboost':
                     current_x_xgb = xgb.DMatrix([current_x])
                     pred_multiple.append(model.predict(current_x_xgb))
-                else:
+                if model_type == 'gbdt':
                     pred_multiple.append(model.predict([current_x]))
+                if model_type == 'torch_dnn':
+                    with torch.no_grad():
+                        pred_torch = model(torch.from_numpy(current_x).float()).numpy()
+                    pred_multiple.append(pred_torch)
+
         pred_multiple_all.append(pred_multiple)
 
     # plot_results(pred_multiple,true_data)
     fig = plt.figure(facecolor='white')
     ax = fig.add_subplot(111)
-    ax.plot(true_data, label='True Data')
+    ax.plot(test_y, label='True Data')
     for i in range(len(pred_multiple_all)):
         padding = [None for p in range(i * prediction_len)]
         plt.plot(padding + pred_multiple_all[i], label='Prediction')

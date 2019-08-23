@@ -4,7 +4,7 @@ Created on 8/20/2019
 """
 import numpy as np
 from sklearn.ensemble import GradientBoostingRegressor
-from data_helper import *
+from Temp_pred_lpy.data_helper import *
 
 
 def train_gbdt():
@@ -50,7 +50,7 @@ def train_gbdt():
     print("wrong threh = %s. correct ratio is %s" % (wrong_thresh, correct_num / test_y.shape[0]))
     print("tend correct ratio is %s" % (tend_correct_num/test_y.shape[0]))
     # plot_results(pred,test_y)
-    plot_results_multiple(test_x,test_y,20,gbdt)
+    plot_results_multiple(test_x,test_y,20,gbdt,model_type='gbdt')
 
     return gbdt
 
