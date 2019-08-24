@@ -21,7 +21,7 @@ hidden_size1 = 50
 hidden_size2 = 20
 num_classes = 1
 num_epochs = 8
-batch_size = 16
+batch_size = 32
 learning_rate = 0.003
 
 # MNIST dataset
@@ -37,6 +37,7 @@ learning_rate = 0.003
 train_x,train_y,test_x,test_y=gen_train_and_test_data(shuffle=True,
                                                       cut_bin=False,
                                                       y_is_percentage=False)
+# 减掉末尾少于一个batch的零头数据，否则最后一个batch会报数量错误
 train_x = torch.from_numpy(train_x[:train_x.shape[0]-train_x.shape[0]%batch_size])
 train_y_plot = train_y
 train_y = torch.from_numpy(train_y[:train_x.shape[0]-train_x.shape[0]%batch_size])

@@ -9,7 +9,7 @@ import os
 from cnn_lstm import get_data
 
 
-def gen_train_and_test_data(csv_path='./df2.csv', input_length=100,
+def gen_train_and_test_data(csv_path='../../data/df2.csv', input_length=100,
                             test_ratio=0.1, shuffle=True, cut_bin=True,
                             x_is_percentage=False,y_is_percentage=False):
     df = pd.read_csv(csv_path,header=None)
@@ -98,8 +98,8 @@ def gen_cnn_data(y_is_center_point):
     x_test, y_test, test_nor = get_data(test, configs['data']['sequence_length'], configs['data']['normalise'])
 
     if y_is_center_point:
-        y_train=y_train[:,y_train.shape[1]//2,y_train.shape[2]//2]
-
+        y_train = y_train[:,y_train.shape[1]//2, y_train.shape[2]//2]
+        y_test = y_test[:,y_test.shape[1]//2, y_test.shape[2]//2]
     return x_train,y_train,x_test,y_test
 
 def reshape_as_image(arrays):
