@@ -3,6 +3,8 @@ Created on 8/23/2019
 @author: no281
 """
 import sys
+sys.path.append(sys.path[0]+'/../')
+
 import torch
 import json
 import numpy as np
@@ -13,7 +15,6 @@ from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader,Dataset,TensorDataset
 
-sys.path.append(sys.path[0]+'/../')
 print(sys.path)
 
 device = torch.device('cpu')
