@@ -14,7 +14,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader,Dataset,TensorDataset
 
-sys.path.append('../')
+sys.path.append(sys.path[0]+'/../')
 
 device = torch.device('cpu')
 
