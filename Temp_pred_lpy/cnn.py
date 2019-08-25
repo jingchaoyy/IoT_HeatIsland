@@ -2,6 +2,7 @@
 Created on 8/23/2019
 @author: no281
 """
+import sys
 import torch
 import json
 import numpy as np
@@ -12,6 +13,8 @@ from Temp_pred_lpy.data_helper import *
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader,Dataset,TensorDataset
+
+sys.path.append('../')
 
 device = torch.device('cpu')
 
