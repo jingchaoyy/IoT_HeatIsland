@@ -3,7 +3,7 @@ Created on 8/23/2019
 @author: no281
 """
 import sys
-sys.path.append('/..')
+sys.path.append(sys.path[0]+'/../')
 
 import torch
 import json
