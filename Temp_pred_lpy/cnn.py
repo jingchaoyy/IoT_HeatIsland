@@ -8,7 +8,6 @@ import json
 import numpy as np
 import pandas as pd
 import os
-from cnn_lstm import get_data
 from Temp_pred_lpy.data_helper import *
 from torch import nn
 import torch.nn.functional as F
