@@ -129,7 +129,7 @@ def normalise_windows(window_data, single_window=False, norm=True):
 
 
 def main():
-    configs = json.load(open('config.json', 'r'))
+    configs = json.load(open('../data/config.json', 'r'))
     if not os.path.exists(configs['model']['save_dir']): os.makedirs(configs['model']['save_dir'])
 
     coor = ['9q5csmp', '9q5cst0', '9q5xxxx', '9q5cst4', '9q5cst5', '9q5csth', '9q5cstj', '9q5cskz', '9q5cssb',

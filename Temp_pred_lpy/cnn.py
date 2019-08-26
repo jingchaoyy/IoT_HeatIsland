@@ -17,6 +17,7 @@ from torch.utils.data import DataLoader,Dataset,TensorDataset
 
 print(sys.path)
 
+# device = torch.device('cuda')
 device = torch.device('cpu')
 
 train_x,train_y,test_x,test_y = gen_cnn_data(y_is_center_point=True)
@@ -28,15 +29,15 @@ input_channel_num = train_x.shape[1]
 print("data shape:%s %s %s %s" % (train_x.shape,train_y.shape,test_x.shape,test_y.shape))
 print('data done!')
 
-num_epochs = 8
-batch_size = 16
+num_epochs = 1
+batch_size = 1
 
 train_dataset = TensorDataset(torch.from_numpy(train_x[:train_x.shape[0] - train_x.shape[0]%batch_size]),
                               torch.from_numpy(train_y[:train_x.shape[0] - train_x.shape[0] % batch_size]))
 test_dataset = TensorDataset(torch.from_numpy(test_x[:test_x.shape[0]-test_x.shape[0]%batch_size]),
                              torch.from_numpy(test_y[:test_x.shape[0]-test_x.shape[0]%batch_size]))
 
-train_loader = DataLoader(dataset=train_dataset,batch_size=batch_size,shuffle=True)
+train_loader = DataLoader(dataset=train_dataset,batch_size=batch_size,shuffle=False)
 test_loader = DataLoader(dataset=test_dataset,batch_size=batch_size,shuffle=False)
 
 
@@ -52,18 +53,41 @@ class CNN(nn.Module):
         self.fc3 = nn.Linear(in_features=30,out_features=1)
 
     def forward(self,x):
-        x = F.relu(self.conv1(x))
-        x = self.pool1(x)
-        x = F.relu(self.conv2(x))
-        x = x.view(-1,self.origin_channels*2*2)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
+        # (bs,95,7,7)
+        origin_input_x = x
+        conv1_x = F.relu(self.conv1(x))
+        pool1_x = self.pool1(conv1_x)
+        conv2_x = F.relu(self.conv2(pool1_x))
+        reshape_x = conv2_x.view(-1,self.origin_channels*2*2)
+        fc1_x = F.relu(self.fc1(reshape_x))
+        fc2_x = F.relu(self.fc2(fc1_x))
+        fc3_x = self.fc3(fc2_x)
+        return fc3_x
+
+class DNN(nn.Module):
+    def __init__(self, input_size, hidden_size1, hidden_size2, num_classes):
+        super(DNN, self).__init__()
+        self.fc1 = nn.Linear(input_size, hidden_size1)
+        self.relu1 = nn.ReLU()
+        self.fc2 = nn.Linear(hidden_size1, hidden_size2)
+        self.relu2 = nn.ReLU()
+        self.fc3 = nn.Linear(hidden_size2, num_classes)
+
+    def forward(self, x):
+        out = x.view(-1,95*7*7)
+        out = self.fc1(out)
+        out = self.relu1(out)
+        out = self.fc2(out)
+        out = self.relu2(out)
+        out = self.fc3(out)
+        return out
 
 
-model = CNN(input_channel_num).to(device)
+# CNN model
+# model = CNN(input_channel_num).to(device)
 
+# DNN model
+model = DNN(95*7*7,95*7,95,1)
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(),lr=0.01)
 
@@ -92,9 +116,9 @@ with torch.no_grad():
         labels = labels.to(device).float()
         outputs = model(images)
         if pred is None:
-            pred = outputs.numpy()
+            pred = outputs.cpu().numpy()
         else:
-            pred = np.append(pred,outputs.numpy())
+            pred = np.append(pred,outputs.cpu().numpy())
     print(pred)
 
 plot_results(pred,test_y)

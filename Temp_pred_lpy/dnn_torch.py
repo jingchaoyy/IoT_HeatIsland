@@ -54,9 +54,9 @@ test_loader = DataLoader(dataset=test_dataset,batch_size=batch_size,shuffle=Fals
 
 
 # Fully connected neural network with one hidden layer
-class NeuralNet(nn.Module):
+class DNN(nn.Module):
     def __init__(self, input_size, hidden_size1, hidden_size2, num_classes):
-        super(NeuralNet, self).__init__()
+        super(DNN, self).__init__()
         self.fc1 = nn.Linear(input_size, hidden_size1)
         self.relu1 = nn.ReLU()
         self.fc2 = nn.Linear(hidden_size1, hidden_size2)
@@ -73,7 +73,7 @@ class NeuralNet(nn.Module):
         return out
 
 
-model = NeuralNet(input_size, hidden_size1, hidden_size2, num_classes).to(device)
+model = DNN(input_size, hidden_size1, hidden_size2, num_classes).to(device)
 
 # Loss and optimizer
 criterion = nn.MSELoss()

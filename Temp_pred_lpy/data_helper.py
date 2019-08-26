@@ -10,7 +10,7 @@ from cnn_lstm import get_data
 
 
 def gen_train_and_test_data(csv_path='../../data/df2.csv', input_length=100,
-                            test_ratio=0.1, shuffle=True, cut_bin=True,
+                            test_ratio=0.06, shuffle=True, cut_bin=True,
                             x_is_percentage=False,y_is_percentage=False):
     df = pd.read_csv(csv_path,header=None)
     s = df[0]
