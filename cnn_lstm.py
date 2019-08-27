@@ -84,8 +84,7 @@ def get_data(data, seq_len, normalise):
         data_windows.append(data[:, :, i:i + seq_len])
 
     data_windows = np.array(data_windows).astype(float)
-    data_windows, data_normalizers = normalise_windows(data_windows,
-                                                       single_window=False) if normalise else data_windows
+    data_windows, data_normalizers = normalise_windows(data_windows, single_window=False, norm=normalise)
 
     x = data_windows[:, :-1]
     y = data_windows[:, -1]
@@ -95,7 +94,7 @@ def get_data(data, seq_len, normalise):
     return x, y, temp_normalizers
 
 
-def normalise_windows(window_data, single_window=False):
+def normalise_windows(window_data, single_window=False, norm=True):
     '''Normalise window with a base value of zero'''
     normalised_data, all_normalizers = [], []
     window_data = [window_data] if single_window else window_data
@@ -105,7 +104,10 @@ def normalise_windows(window_data, single_window=False):
             # normalised_col = [((float(p) / float(window[0, col_i])) - 1) for p in window[:, col_i]]
             normalised = []
             curr_window = window[:, :, col_i]
-            normalizer = curr_window[0, 0]
+            if norm == True:
+                normalizer = curr_window[0, 0]
+            else:
+                normalizer = 1
             for q in curr_window:
                 nor_col = []
                 for p in q:
@@ -128,7 +130,7 @@ def normalise_windows(window_data, single_window=False):
 
 
 def main():
-    configs = json.load(open('config.json', 'r'))
+    configs = json.load(open('../data/config.json', 'r'))
     if not os.path.exists(configs['model']['save_dir']): os.makedirs(configs['model']['save_dir'])
 
     # coor = ['9q5csmp', '9q5cst0', '9q5xxxx', '9q5cst4', '9q5cst5', '9q5csth', '9q5cstj', '9q5cskz', '9q5cssb',
