@@ -30,7 +30,7 @@ print("data shape:%s %s %s %s" % (train_x.shape,train_y.shape,test_x.shape,test_
 print('data done!')
 
 num_epochs = 1
-batch_size = 1
+batch_size = 16
 
 train_dataset = TensorDataset(torch.from_numpy(train_x[:train_x.shape[0] - train_x.shape[0]%batch_size]),
                               torch.from_numpy(train_y[:train_x.shape[0] - train_x.shape[0] % batch_size]))
