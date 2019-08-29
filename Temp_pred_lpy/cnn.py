@@ -20,7 +20,7 @@ print(sys.path)
 # device = torch.device('cuda')
 device = torch.device('cpu')
 
-train_x,train_y,test_x,test_y = gen_cnn_data(y_is_center_point=True)
+train_x,train_y,test_x,test_y = gen_cnn_data(y_is_center_point=False)
 input_channel_num = train_x.shape[1]
 
 # 得到如下形状的数据：
@@ -29,15 +29,15 @@ input_channel_num = train_x.shape[1]
 print("data shape:%s %s %s %s" % (train_x.shape,train_y.shape,test_x.shape,test_y.shape))
 print('data done!')
 
-num_epochs = 1
-batch_size = 1
+num_epochs = 3
+batch_size = 16
 
 train_dataset = TensorDataset(torch.from_numpy(train_x[:train_x.shape[0] - train_x.shape[0]%batch_size]),
                               torch.from_numpy(train_y[:train_x.shape[0] - train_x.shape[0] % batch_size]))
 test_dataset = TensorDataset(torch.from_numpy(test_x[:test_x.shape[0]-test_x.shape[0]%batch_size]),
                              torch.from_numpy(test_y[:test_x.shape[0]-test_x.shape[0]%batch_size]))
 
-train_loader = DataLoader(dataset=train_dataset,batch_size=batch_size,shuffle=False)
+train_loader = DataLoader(dataset=train_dataset,batch_size=batch_size,shuffle=True)
 test_loader = DataLoader(dataset=test_dataset,batch_size=batch_size,shuffle=False)
 
 
@@ -84,10 +84,11 @@ class DNN(nn.Module):
 
 
 # CNN model
-# model = CNN(input_channel_num).to(device)
+model = CNN(input_channel_num).to(device)
 
 # DNN model
-model = DNN(95*7*7,95*7,95,1)
+# model = DNN(95*7*7,95*7,95,1)
+
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(),lr=0.01)
 
@@ -108,6 +109,7 @@ for epoch in range(num_epochs):
             print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
                   .format(epoch + 1, num_epochs, i + 1, total_step, loss.item()))
 
+# predict
 with torch.no_grad():
     pred = None
     # 改变predict时候使用的是train数据还是test数据
