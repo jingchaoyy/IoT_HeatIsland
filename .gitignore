@@ -14,3 +14,8 @@ dataHarvest/Tracking_City_Temperature_by_Hour.py
 saved_models
 *.png
 *.bak
+Temp_pred_lpy/DNN-model.ckpt
+*.pyc
+*.pyc
+*.ckpt
+*.pyc

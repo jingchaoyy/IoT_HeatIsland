@@ -15,30 +15,72 @@ from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader,Dataset,TensorDataset
 
-print(sys.path)
+# print(sys.path)
+def train_cnn(num_epochs=1,batch_size=16,learn_rate=0.01):
+    # device = torch.device('cuda')
+    device = torch.device('cpu')
+    save_path = './CNN_model.ckpt'
 
-# device = torch.device('cuda')
-device = torch.device('cpu')
+    train_x, train_y, test_x, test_y = gen_cnn_data(y_is_center_point=False)
+    input_channel_num = train_x.shape[1]
 
-train_x,train_y,test_x,test_y = gen_cnn_data(y_is_center_point=True)
-input_channel_num = train_x.shape[1]
+    # 得到如下形状的数据：
+    # train_x.shape = (1736,99,7,7) test_x.shape = (225,99,7,7)
+    # train_y.shape = (1736,) test_y.shape = (225,)
+    print("data shape:%s %s %s %s" % (train_x.shape, train_y.shape, test_x.shape, test_y.shape))
+    print('train data done!')
 
-# 得到如下形状的数据：
-# train_x.shape = (1736,99,7,7) test_x.shape = (225,99,7,7)
-# train_y.shape = (1736,) test_y.shape = (225,)
-print("data shape:%s %s %s %s" % (train_x.shape,train_y.shape,test_x.shape,test_y.shape))
-print('data done!')
 
-num_epochs = 1
-batch_size = 16
+    train_dataset = TensorDataset(torch.from_numpy(train_x[:train_x.shape[0] - train_x.shape[0] % batch_size]),
+                                  torch.from_numpy(train_y[:train_x.shape[0] - train_x.shape[0] % batch_size]))
+    test_dataset = TensorDataset(torch.from_numpy(test_x[:test_x.shape[0] - test_x.shape[0] % batch_size]),
+                                 torch.from_numpy(test_y[:test_x.shape[0] - test_x.shape[0] % batch_size]))
 
-train_dataset = TensorDataset(torch.from_numpy(train_x[:train_x.shape[0] - train_x.shape[0]%batch_size]),
-                              torch.from_numpy(train_y[:train_x.shape[0] - train_x.shape[0] % batch_size]))
-test_dataset = TensorDataset(torch.from_numpy(test_x[:test_x.shape[0]-test_x.shape[0]%batch_size]),
-                             torch.from_numpy(test_y[:test_x.shape[0]-test_x.shape[0]%batch_size]))
+    train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
 
-train_loader = DataLoader(dataset=train_dataset,batch_size=batch_size,shuffle=False)
-test_loader = DataLoader(dataset=test_dataset,batch_size=batch_size,shuffle=False)
+    # CNN model
+    model = CNN(input_channel_num).to(device)
+
+    # DNN model
+    # model = DNN(95*7*7,95*7,95,1)
+    criterion = nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(),lr=learn_rate)
+
+    total_step = len(train_loader)
+    for epoch in range(num_epochs):
+        for i, (images,labels) in enumerate(train_loader):
+            images = images.to(device).float()
+            labels = labels.to(device).float()
+
+            outputs = model(images)
+            loss = criterion(outputs,labels)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            if (i + 1) % 10 == 0:
+                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
+                      .format(epoch + 1, num_epochs, i + 1, total_step, loss.item()))
+
+    with torch.no_grad():
+        pred = None
+        # 改变predict时候使用的是train数据还是test数据
+        for images, labels in test_loader:
+            images = images.to(device).float()
+            labels = labels.to(device).float()
+            outputs = model(images)
+            if pred is None:
+                pred = outputs.cpu().numpy()
+            else:
+                pred = np.append(pred,outputs.cpu().numpy())
+        # print(pred)
+
+    plot_results(pred,test_y)
+    torch.save(model, save_path)
+    return model
+    # plot_results_multiple(test_x,test_y,20,model,'torch_dnn')
 
 
 class CNN(nn.Module):
@@ -64,6 +106,7 @@ class CNN(nn.Module):
         fc3_x = self.fc3(fc2_x)
         return fc3_x
 
+
 class DNN(nn.Module):
     def __init__(self, input_size, hidden_size1, hidden_size2, num_classes):
         super(DNN, self).__init__()
@@ -83,43 +126,5 @@ class DNN(nn.Module):
         return out
 
 
-# CNN model
-# model = CNN(input_channel_num).to(device)
-
-# DNN model
-model = DNN(95*7*7,95*7,95,1)
-criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(),lr=0.01)
-
-total_step = len(train_loader)
-for epoch in range(num_epochs):
-    for i, (images,labels) in enumerate(train_loader):
-        images = images.to(device).float()
-        labels = labels.to(device).float()
-
-        outputs = model(images)
-        loss = criterion(outputs,labels)
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        if (i + 1) % 10 == 0:
-            print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
-                  .format(epoch + 1, num_epochs, i + 1, total_step, loss.item()))
-
-with torch.no_grad():
-    pred = None
-    # 改变predict时候使用的是train数据还是test数据
-    for images, labels in test_loader:
-        images = images.to(device).float()
-        labels = labels.to(device).float()
-        outputs = model(images)
-        if pred is None:
-            pred = outputs.cpu().numpy()
-        else:
-            pred = np.append(pred,outputs.cpu().numpy())
-    print(pred)
-
-plot_results(pred,test_y)
-# plot_results_multiple(test_x,test_y,20,model,'torch_dnn')
+if __name__ == "__main__":
+    train_cnn()
