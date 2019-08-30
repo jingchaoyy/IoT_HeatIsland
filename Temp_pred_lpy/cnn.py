@@ -16,7 +16,8 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader,Dataset,TensorDataset
 
 # print(sys.path)
-def train_cnn(num_epochs=3,batch_size=16,learn_rate=0.01):
+def train_cnn(num_epochs=4,batch_size=16,learn_rate=0.005):
+    random.seed(1234)
     # device = torch.device('cuda')
     device = torch.device('cpu')
     save_path = './CNN_model.ckpt'

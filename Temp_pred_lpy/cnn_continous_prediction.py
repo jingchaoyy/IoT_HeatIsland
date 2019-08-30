@@ -80,14 +80,15 @@ if __name__ == '__main__':
     # 此时得到的temperature.shape=(18,18,2088)
     print(temperature.shape)
 
-    input_time_length = 99
+    input_time_length = 95
     output_time_length = 20
     pred_times_num = 6
     # 此处写死cnn的处理大小为7*7
     cnn_kernel = 7
+
     # 训练模型or载入模型
-    model = train_cnn()
-    # model = torch.load('./CNN_model.ckpt')
+    # model = train_cnn()
+    model = torch.load('./CNN_model.ckpt')
 
     all_pred = []
     for t in range(pred_times_num):
@@ -95,7 +96,7 @@ if __name__ == '__main__':
         for i in range(output_time_length):
             if i == 0:
                 # init_input.shape = (18,18,99)
-                init_input = temperature[:,:,t*input_time_length:(t+1)*input_time_length]
+                init_input = temperature[:,:,t*output_time_length:t*output_time_length+input_time_length]
                 # 将init_input reshape变为(1,99,18,18)
                 init_input = init_input.transpose(2,0,1)
                 init_input = init_input[np.newaxis,:]
@@ -107,10 +108,13 @@ if __name__ == '__main__':
             pred_frame = []
             for dx in range(temperature.shape[0]-cnn_kernel+1):
                 for dy in range(temperature.shape[1]-cnn_kernel+1):
-                    cur_input = torch.from_numpy(input_frame[:,:,dx:dx+cnn_kernel,dy:dy+cnn_kernel]).float()
+                    cur_input = torch.from_numpy(input_frame[:,:,dy:dy+cnn_kernel,dx:dx+cnn_kernel]).float()
                     with torch.no_grad():
                         pred_point = model(cur_input).numpy()[0,0]
                         pred_frame.append(pred_point)
+                        # print(t,i,dx,dy)
+                        # if t == 20 and dx == 11 and dy == 11:
+                        #     print(t,i,dx,dy)
             # pred_frame.shape=(12,12) 18 - 7//2
             pred_frame = np.array(pred_frame).reshape(width-cnn_kernel+1,length-cnn_kernel+1)
             pred_frames_1time.append(padding(pred_frame))
