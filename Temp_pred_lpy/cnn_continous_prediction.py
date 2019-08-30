@@ -86,8 +86,8 @@ if __name__ == '__main__':
     # 此处写死cnn的处理大小为7*7
     cnn_kernel = 7
     # 训练模型or载入模型
-    # model = train_cnn()
-    model = torch.load('./CNN_model.ckpt')
+    model = train_cnn()
+    # model = torch.load('./CNN_model.ckpt')
 
     all_pred = []
     for t in range(pred_times_num):
@@ -118,3 +118,8 @@ if __name__ == '__main__':
         all_pred.append(pred_frames_1time)
     all_pred = np.array(all_pred)
     all_pred = all_pred.reshape(all_pred.shape[0]*all_pred.shape[1],all_pred.shape[2],all_pred.shape[3])
+    np.save('../../data/all_pred.npy',all_pred)
+    all_truth = temperature[:,:,1:1+output_time_length*pred_times_num]
+    all_truth = all_truth.transpose(2,0,1)
+    np.save('../../data/all_truth.npy',all_truth)
+    print('npy saved!')
