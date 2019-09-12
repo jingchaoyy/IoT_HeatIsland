@@ -25,6 +25,7 @@ from keras.layers.convolutional import Conv2D
 from keras.layers.convolutional import MaxPooling2D
 from keras.layers import Flatten
 from keras.layers import TimeDistributed
+from keras.layers.pooling import GlobalAveragePooling1D
 
 
 def plot_results(predicted_data, true_data):
@@ -64,6 +65,11 @@ def predict_sequences_multiple(in_model, test_data, window_size, prediction_len)
     return prediction_seqs
 
 
+def cnn_lstm_predict(in_model, test_data, window_size, prediction_len):
+    print('[Model] Predicting CNN_LSTM Multiple...')
+    prediction_seqs = []
+
+
 def predict_point_by_point(in_model, data):
     # Predict each timestep given the last sequence of true data, in effect only predicting 1 step ahead each time
     print('[Model] Predicting Point-by-Point...')
@@ -88,7 +94,7 @@ def get_data(data, seq_len, normalise):
 
     x = data_windows[:, :-1]
     y = data_windows[:, -1]
-    y = y[:, [int(y.shape[1] / 2)], [int(y.shape[-1] / 2)]]
+    # y = y[:, [int(y.shape[1] / 2)], [int(y.shape[-1] / 2)]]  # Getting only the centroid point value
 
     temp_normalizers = data_normalizers[:, 0]
     return x, y, temp_normalizers
@@ -130,7 +136,7 @@ def normalise_windows(window_data, single_window=False, norm=True):
 
 
 def main():
-    configs = json.load(open('../data/config.json', 'r'))
+    configs = json.load(open('config.json', 'r'))
     if not os.path.exists(configs['model']['save_dir']): os.makedirs(configs['model']['save_dir'])
 
     # coor = ['9q5csmp', '9q5cst0', '9q5xxxx', '9q5cst4', '9q5cst5', '9q5csth', '9q5cstj', '9q5cskz', '9q5cssb',
@@ -165,29 +171,33 @@ def main():
     x_train, y_train, train_nor = get_data(train, configs['data']['sequence_length'], configs['data']['normalise'])
     x_test, y_test, test_nor = get_data(test, configs['data']['sequence_length'], configs['data']['normalise'])
 
+    x_train = x_train[:, :, :, :, np.newaxis]
+    x_test = x_test[:, :, :, :, np.newaxis]
+
+    shape = x_train.shape[1:]
     model = Sequential()
-    model.add(TimeDistributed(Conv2D(filters=64, kernel_size=3, activation='relu'), input_shape=(7, 7, 1)))
-    model.add(Conv2D(32, kernel_size=3, activation='relu'))
-    model.add(TimeDistributed(MaxPooling2D(pool_size=3)))
+
+    model.add(TimeDistributed(Conv2D(32, 3, 3, border_mode='same'), input_shape=shape))
+    model.add(TimeDistributed(Activation('relu')))
+    model.add(TimeDistributed(Conv2D(32, 3, 3, border_mode='same')))
+    model.add(TimeDistributed(Activation('relu')))
+    model.add(TimeDistributed(MaxPooling2D(pool_size=(2, 2))))
+    model.add(TimeDistributed(Dropout(0.25)))
+
     model.add(TimeDistributed(Flatten()))
+    model.add(TimeDistributed(Dense(512)))
 
-    model.add(LSTM(100, activation='relu'))
-    model.add(Dense(1))
-    model.compile(optimizer='adam', loss='mse')
+    model.add(TimeDistributed(Dense(35, name="first_dense")))
 
-    # model.add(LSTM(configs['model']['layers'][0]['neurons'], input_shape=(
-    #     configs['model']['layers'][0]['input_timesteps'], configs['model']['layers'][0]['input_dim']),
-    #                return_sequences=configs['model']['layers'][0]['return_seq']))
-    # model.add(Dropout(configs['model']['layers'][1]['rate']))
-    # model.add(
-    #     LSTM(configs['model']['layers'][2]['neurons'], return_sequences=configs['model']['layers'][2]['return_seq']))
-    # model.add(
-    #     LSTM(configs['model']['layers'][3]['neurons'], return_sequences=configs['model']['layers'][3]['return_seq']))
-    # model.add(Dropout(configs['model']['layers'][4]['rate']))
-    # model.add(Dense(configs['model']['layers'][5]['neurons'], activation=configs['model']['layers'][5]['activation']))
-    # # plot_model(model.model, to_file='model_plot_test.png', show_shapes=True, show_layer_names=True)
-    #
-    # model.compile(loss=configs['model']['loss'], optimizer=configs['model']['optimizer'])
+    model.add(LSTM(20, return_sequences=True, name="lstm_layer"))
+
+    # %%
+    model.add(TimeDistributed(Dense(1), name="time_distr_dense_one"))
+    model.add(GlobalAveragePooling1D(name="global_avg"))
+    # plot_model(model.model, to_file='/Users/jc/Desktop/model_plot.png', show_shapes=True, show_layer_names=True)
+
+    # %%
+    model.compile(loss='mse', optimizer='adam')
 
     save_fname = os.path.join(configs['model']['save_dir'], '%s-e%s.h5' % (
         dt.datetime.now().strftime('%d%m%Y-%H%M%S'), str(configs['training']['epochs'])))
@@ -210,14 +220,14 @@ def main():
     predictions = predict_sequences_multiple(model, x_test, configs['data']['sequence_length'],
                                              configs['data']['prediction_length'])
 
-    # '''reverse normalization'''
-    # for yt in range(len(y_test)):
-    #     nor = test_nor[yt]
-    #     y_test[yt][0] = nor * (y_test[yt][0] + 1)
-    #
-    # for prdt in range(len(predictions)):
-    #     nor_ = test_nor[prdt * configs['data']['prediction_length']]
-    #     predictions[prdt] = [nor_ * (j + 1) for j in predictions[prdt]]
+    '''reverse normalization'''
+    for yt in range(len(y_test)):
+        nor = test_nor[yt]
+        y_test[yt][0] = nor * (y_test[yt][0] + 1)
+
+    for prdt in range(len(predictions)):
+        nor_ = test_nor[prdt * configs['data']['prediction_length']]
+        predictions[prdt] = [nor_ * (j + 1) for j in predictions[prdt]]
 
     plot_results_multiple(predictions, y_test, configs['data']['prediction_length'])
 
