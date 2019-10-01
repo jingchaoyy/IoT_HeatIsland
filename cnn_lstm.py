@@ -25,6 +25,7 @@ from keras.layers.convolutional import Conv2D
 from keras.layers.convolutional import MaxPooling2D
 from keras.layers import Flatten
 from keras.layers import TimeDistributed
+from keras.layers.pooling import GlobalAveragePooling1D
 
 
 def plot_results(predicted_data, true_data):
@@ -64,6 +65,11 @@ def predict_sequences_multiple(in_model, test_data, window_size, prediction_len)
     return prediction_seqs
 
 
+def cnn_lstm_predict(in_model, test_data, window_size, prediction_len):
+    print('[Model] Predicting CNN_LSTM Multiple...')
+    prediction_seqs = []
+
+
 def predict_point_by_point(in_model, data):
     # Predict each timestep given the last sequence of true data, in effect only predicting 1 step ahead each time
     print('[Model] Predicting Point-by-Point...')
@@ -84,17 +90,17 @@ def get_data(data, seq_len, normalise):
         data_windows.append(data[:, :, i:i + seq_len])
 
     data_windows = np.array(data_windows).astype(float)
-    data_windows, data_normalizers = normalise_windows(data_windows,
-                                                       single_window=False) if normalise else data_windows
+    data_windows, data_normalizers = normalise_windows(data_windows, single_window=False, norm=normalise)
 
     x = data_windows[:, :-1]
     y = data_windows[:, -1]
+    y = y[:, [int(y.shape[1] / 2)], [int(y.shape[-1] / 2)]]
 
     temp_normalizers = data_normalizers[:, 0]
     return x, y, temp_normalizers
 
 
-def normalise_windows(window_data, single_window=False):
+def normalise_windows(window_data, single_window=False, norm=True):
     '''Normalise window with a base value of zero'''
     normalised_data, all_normalizers = [], []
     window_data = [window_data] if single_window else window_data
@@ -104,7 +110,10 @@ def normalise_windows(window_data, single_window=False):
             # normalised_col = [((float(p) / float(window[0, col_i])) - 1) for p in window[:, col_i]]
             normalised = []
             curr_window = window[:, :, col_i]
-            normalizer = curr_window[0, 0]
+            if norm == True:
+                normalizer = curr_window[0, 0]
+            else:
+                normalizer = 1
             for q in curr_window:
                 nor_col = []
                 for p in q:
@@ -130,17 +139,25 @@ def main():
     configs = json.load(open('config.json', 'r'))
     if not os.path.exists(configs['model']['save_dir']): os.makedirs(configs['model']['save_dir'])
 
-    coor = ['9q5csmp', '9q5cst0', '9q5xxxx', '9q5cst4', '9q5cst5', '9q5csth', '9q5cstj', '9q5cskz', '9q5cssb',
-            '9q5cssc',
-            '9q5cssf', '9q5cssg', '9q5cssu', '9q5cssv', '9q5cskx', '9q5css8', '9q5css9', '9q5cssd', '9q5csse',
-            '9q5csss',
-            '9q5csst', '9q5cskr', '9q5css2', '9q5css3', '9q5css6', '9q5css7', '9q5cssk', '9q5cssm', '9q5xxxx',
-            '9q5css0',
-            '9q5css1', '9q5css4', '9q5css5', '9q5cssh', '9q5cssj', '9q5cs7z', '9q5xxxx', '9q5csec', '9q5csef',
-            '9q5cseg',
-            '9q5cseu', '9q5csev', '9q5cs7x', '9q5cse8', '9q5xxxx', '9q5csed', '9q5csee', '9q5cses', '9q5cset']
+    # coor = ['9q5csmp', '9q5cst0', '9q5xxxx', '9q5cst4', '9q5cst5', '9q5csth', '9q5cstj', '9q5cskz', '9q5cssb',
+    #         '9q5cssc',
+    #         '9q5cssf', '9q5cssg', '9q5cssu', '9q5cssv', '9q5cskx', '9q5css8', '9q5css9', '9q5cssd', '9q5csse',
+    #         '9q5csss',
+    #         '9q5csst', '9q5cskr', '9q5css2', '9q5css3', '9q5css6', '9q5css7', '9q5cssk', '9q5cssm', '9q5xxxx',
+    #         '9q5css0',
+    #         '9q5css1', '9q5css4', '9q5css5', '9q5cssh', '9q5cssj', '9q5cs7z', '9q5xxxx', '9q5csec', '9q5csef',
+    #         '9q5cseg',
+    #         '9q5cseu', '9q5csev', '9q5cs7x', '9q5cse8', '9q5xxxx', '9q5csed', '9q5csee', '9q5cses', '9q5cset']
+    coor = ['9q5csxx', '9q5csz8', '9q5csz9', '9q5cszd', '9q5csze', '9q5cszs', '9q5cszt', '9q5csxr', '9q5csz2',
+            '9q5csz3', '9q5csz6', '9q5csz7', '9q5cszk', '9q5cszm', '9q5csxp', '9q5csz0', '9q5csz1', '9q5csz4',
+            '9q5csz5', '9q5cszh', '9q5cszj', '9q5cswz', '9q5csyb', '9q5csyc', '9q5csyf', '9q5csyg', '9q5csyu',
+            '9q5csyv', '9q5cswx', '9q5csy8', '9q5csy9', '9q5csyd', '9q5csye', '9q5csys', '9q5csyt', '9q5cswr',
+            '9q5csy2', '9q5csy3', '9q5csy6', '9q5csy7', '9q5csyk', '9q5csym', '9q5cswp', '9q5csy0', '9q5csy1',
+            '9q5csy4', '9q5csy5', '9q5csyh', '9q5csyj']
 
-    data = pd.read_csv('/Users/jc/Documents/GitHub/IoT_HeatIsland_Data/data/LA/joined_49_fillna_1.csv', usecols=coor)
+    # data = pd.read_csv('/Users/jc/Documents/GitHub/IoT_HeatIsland_Data/data/LA/joined_49_fillna_1.csv', usecols=coor)
+    data = pd.read_csv('/Users/jc/Documents/GitHub/IoT_HeatIsland_Data/data/LA/tempMatrix_LA.csv', usecols=coor)
+
     for c in range(len(coor)):
         coor[c] = data[coor[c]]
 
@@ -154,29 +171,33 @@ def main():
     x_train, y_train, train_nor = get_data(train, configs['data']['sequence_length'], configs['data']['normalise'])
     x_test, y_test, test_nor = get_data(test, configs['data']['sequence_length'], configs['data']['normalise'])
 
+    x_train = x_train[:, :, :, :, np.newaxis]
+    x_test = x_test[:, :, :, :, np.newaxis]
+
+    shape = x_train.shape[1:]
     model = Sequential()
-    model.add(TimeDistributed(Conv2D(filters=64, kernel_size=3, activation='relu'), input_shape=(7, 7, 1)))
-    model.add(Conv2D(32, kernel_size=3, activation='relu'))
-    model.add(TimeDistributed(MaxPooling2D(pool_size=3)))
+
+    model.add(TimeDistributed(Conv2D(32, 3, 3, border_mode='same'), input_shape=shape))
+    model.add(TimeDistributed(Activation('relu')))
+    model.add(TimeDistributed(Conv2D(32, 3, 3, border_mode='same')))
+    model.add(TimeDistributed(Activation('relu')))
+    model.add(TimeDistributed(MaxPooling2D(pool_size=(2, 2))))
+    model.add(TimeDistributed(Dropout(0.25)))
+
     model.add(TimeDistributed(Flatten()))
+    model.add(TimeDistributed(Dense(512)))
 
-    model.add(LSTM(100, activation='relu'))
-    model.add(Dense(1))
-    model.compile(optimizer='adam', loss='mse')
+    model.add(TimeDistributed(Dense(35, name="first_dense")))
 
-    # model.add(LSTM(configs['model']['layers'][0]['neurons'], input_shape=(
-    #     configs['model']['layers'][0]['input_timesteps'], configs['model']['layers'][0]['input_dim']),
-    #                return_sequences=configs['model']['layers'][0]['return_seq']))
-    # model.add(Dropout(configs['model']['layers'][1]['rate']))
-    # model.add(
-    #     LSTM(configs['model']['layers'][2]['neurons'], return_sequences=configs['model']['layers'][2]['return_seq']))
-    # model.add(
-    #     LSTM(configs['model']['layers'][3]['neurons'], return_sequences=configs['model']['layers'][3]['return_seq']))
-    # model.add(Dropout(configs['model']['layers'][4]['rate']))
-    # model.add(Dense(configs['model']['layers'][5]['neurons'], activation=configs['model']['layers'][5]['activation']))
-    # # plot_model(model.model, to_file='model_plot_test.png', show_shapes=True, show_layer_names=True)
-    #
-    # model.compile(loss=configs['model']['loss'], optimizer=configs['model']['optimizer'])
+    model.add(LSTM(20, return_sequences=True, name="lstm_layer"))
+
+    # %%
+    model.add(TimeDistributed(Dense(1), name="time_distr_dense_one"))
+    model.add(GlobalAveragePooling1D(name="global_avg"))
+    # plot_model(model.model, to_file='/Users/jc/Desktop/model_plot.png', show_shapes=True, show_layer_names=True)
+
+    # %%
+    model.compile(loss='mse', optimizer='adam')
 
     save_fname = os.path.join(configs['model']['save_dir'], '%s-e%s.h5' % (
         dt.datetime.now().strftime('%d%m%Y-%H%M%S'), str(configs['training']['epochs'])))
@@ -199,14 +220,14 @@ def main():
     predictions = predict_sequences_multiple(model, x_test, configs['data']['sequence_length'],
                                              configs['data']['prediction_length'])
 
-    # '''reverse normalization'''
-    # for yt in range(len(y_test)):
-    #     nor = test_nor[yt]
-    #     y_test[yt][0] = nor * (y_test[yt][0] + 1)
-    #
-    # for prdt in range(len(predictions)):
-    #     nor_ = test_nor[prdt * configs['data']['prediction_length']]
-    #     predictions[prdt] = [nor_ * (j + 1) for j in predictions[prdt]]
+    '''reverse normalization'''
+    for yt in range(len(y_test)):
+        nor = test_nor[yt]
+        y_test[yt][0] = nor * (y_test[yt][0] + 1)
+
+    for prdt in range(len(predictions)):
+        nor_ = test_nor[prdt * configs['data']['prediction_length']]
+        predictions[prdt] = [nor_ * (j + 1) for j in predictions[prdt]]
 
     plot_results_multiple(predictions, y_test, configs['data']['prediction_length'])
 
