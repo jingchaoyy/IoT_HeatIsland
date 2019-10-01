@@ -9,10 +9,9 @@ import os
 from cnn_lstm import get_data
 
 
-def gen_train_and_test_data(csv_path='../../data/df2.csv', input_length=100,
-                            test_ratio=0.06, shuffle=True, cut_bin=True,
-                            x_is_percentage=False,y_is_percentage=False):
-    df = pd.read_csv(csv_path,header=None)
+def gen_train_and_test_data(csv_path='/../../IoT_HeatIsland_Data/data/LA/9q5css6_lpy.csv', input_length=100,
+                            test_ratio=0.4, shuffle=True, cut_bin=True, x_is_percentage=False, y_is_percentage=False):
+    df = pd.read_csv(csv_path, header=None)
     s = df[0]
     data_array = np.array(s)
 
@@ -20,23 +19,23 @@ def gen_train_and_test_data(csv_path='../../data/df2.csv', input_length=100,
     if cut_bin:
         # 分箱宽度
         bin_length = 0.5
-        label_array = np.round(data_array/bin_length)
+        label_array = np.round(data_array / bin_length)
         label_array_min = label_array.min()
         data_array = label_array - label_array.min()
 
         print('Cut bin Done! Bin length is: %s, and the transform equation is : T = %s * label + %s'
-              % (bin_length,bin_length,label_array_min))
+              % (bin_length, bin_length, label_array_min))
 
     all_x_y = []
     train_x_y = []
     test_x_y = []
-    for i in range(0,data_array.shape[0]-input_length):
+    for i in range(0, data_array.shape[0] - input_length):
         all_x_y.append(data_array[i:input_length + i + 1])
 
     # 按照test_ratio分配test数量，取全部数据里面的最后一部分作为test数据
     test_num = int(len(all_x_y) * test_ratio)
     # 取all_x_y中的后面作为test
-    test_indexs = np.arange(len(all_x_y)-test_num,len(all_x_y))
+    test_indexs = np.arange(len(all_x_y) - test_num, len(all_x_y))
 
     for i in range(len(all_x_y)):
         if i in test_indexs:
@@ -51,17 +50,17 @@ def gen_train_and_test_data(csv_path='../../data/df2.csv', input_length=100,
     train_x_y = np.array(train_x_y)
     test_x_y = np.array(test_x_y)
 
-    train_x = train_x_y[:,0:100]
-    train_y = train_x_y[:,100]
-    test_x = test_x_y[:,0:100]
-    test_y = test_x_y[:,100]
+    train_x = train_x_y[:, 0:100]
+    train_y = train_x_y[:, 100]
+    test_x = test_x_y[:, 0:100]
+    test_y = test_x_y[:, 100]
 
     # if x_is_percentage:
 
     # 将输出的y转化成变化的百分比
     if y_is_percentage:
-        train_y = (train_y - train_x[:,-1])/train_x[:,-1]*100.0
-        test_y = (test_y - test_x[:,-1])/test_x[:,-1]*100.0
+        train_y = (train_y - train_x[:, -1]) / train_x[:, -1] * 100.0
+        test_y = (test_y - test_x[:, -1]) / test_x[:, -1] * 100.0
 
     return train_x, train_y, test_x, test_y
 
@@ -70,7 +69,7 @@ def gen_train_and_test_data(csv_path='../../data/df2.csv', input_length=100,
 # x_train.shape=[1740,95,7,7]
 # y_train.shape=[1740,7,7] (if not y_is_center_point)
 def gen_cnn_data(y_is_center_point):
-    configs = json.load(open('../../data/config.json', 'r'))
+    configs = json.load(open('../config_lpy.json', 'r'))
     if not os.path.exists(configs['model']['save_dir']): os.makedirs(configs['model']['save_dir'])
 
     # coor = ['9q5csmp', '9q5cst0', '9q5xxxx', '9q5cst4', '9q5cst5', '9q5csth', '9q5cstj', '9q5cskz', '9q5cssb',
@@ -92,7 +91,7 @@ def gen_cnn_data(y_is_center_point):
             '9q5csy4', '9q5csy5', '9q5csyh', '9q5csyj']
 
     # data = pd.read_csv('/Users/jc/Documents/GitHub/IoT_HeatIsland_Data/data/LA/joined_49_fillna_1.csv', usecols=coor)
-    data = pd.read_csv('../../data/tempMatrix_LA.csv', usecols=coor)
+    data = pd.read_csv('../../IoT_HeatIsland_Data/data/LA/tempMatrix_LA.csv', usecols=coor)
     for c in range(len(coor)):
         coor[c] = data[coor[c]]
 
@@ -107,12 +106,13 @@ def gen_cnn_data(y_is_center_point):
     x_test, y_test, test_nor = get_data(test, configs['data']['sequence_length'], configs['data']['normalise'])
 
     if y_is_center_point:
-        y_train = y_train[:,y_train.shape[1]//2, y_train.shape[2]//2]
-        y_test = y_test[:,y_test.shape[1]//2, y_test.shape[2]//2]
-    return x_train,y_train,x_test,y_test
+        y_train = y_train[:, y_train.shape[1] // 2, y_train.shape[2] // 2]
+        y_test = y_test[:, y_test.shape[1] // 2, y_test.shape[2] // 2]
+    return x_train, y_train, x_test, y_test
+
 
 def reshape_as_image(arrays):
-    return (n.reshape((n.shape[0],n.shape[1],1,1)) for n in arrays)
+    return (n.reshape((n.shape[0], n.shape[1], 1, 1)) for n in arrays)
 
 
 def plot_results(predicted_data, true_data):
@@ -125,14 +125,14 @@ def plot_results(predicted_data, true_data):
 
 
 def plot_results_multiple(test_x, test_y, prediction_len, model, model_type):
-    assert model_type in ['gbdt','xgboost','torch_dnn']
+    assert model_type in ['gbdt', 'xgboost', 'torch_dnn']
     fig = plt.figure(facecolor='white')
     ax = fig.add_subplot(111)
     ax.plot(test_y, label='True Data')
     pred_multiple_all = []
-    for i in range(test_x.shape[0]//prediction_len):
+    for i in range(test_x.shape[0] // prediction_len):
         pred_multiple = []
-        current_x = test_x[i*prediction_len]
+        current_x = test_x[i * prediction_len]
         for j in range(prediction_len):
             if j == 0:
                 if model_type == 'xgboost':
