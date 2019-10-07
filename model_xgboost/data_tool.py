@@ -82,9 +82,21 @@ def get_test_data(corner, train_all, test_all):
     :return:
     """
     if corner == 0:
-        # getting the first element (top-left corner of the last of the sequence as y data
+        # getting the first element (top-left corner of the last of the sequence as y data)
         train_x = train_all[:, -1, 0, [0]]
         test_x = test_all[:, -1, 0, [0]]
+    elif corner == 1:
+        # getting the last element of the first row (top-right corner of the last of the sequence as y data)
+        train_x = train_all[:, -1, 0, [-1]]
+        test_x = test_all[:, -1, 0, [-1]]
+    elif corner == 2:
+        # getting the first element of the last row (bottom-left corner of the last of the sequence as y data)
+        train_x = train_all[:, -1, -1, [0]]
+        test_x = test_all[:, -1, -1, [0]]
+    elif corner == 3:
+        # getting the last element of the last row (bottom-right corner of the last of the sequence as y data)
+        train_x = train_all[:, -1, -1, [-1]]
+        test_x = test_all[:, -1, -1, [-1]]
 
     return train_x, test_x
 

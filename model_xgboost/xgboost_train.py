@@ -5,6 +5,13 @@ Created on  2019-09-24
 from model_xgboost.data_tool import *
 
 
+class xgboost_tree:
+    def __init__(self, model, test_data_x, test_data_y):
+        self.model = model
+        self.test_data_x = test_data_x
+        self.test_data_y = test_data_y
+
+
 def padding(pred_frame):
     pass
 
@@ -74,14 +81,16 @@ def get_trees(kernal, timestep, trainALL, testALL):
     :return:
     """
     print('start building trees')
-    corner = [0]  # 0,1,2,3 are corner of topleft, topright, botleft, botright respectively
+    corner = [0, 1]  # 0,1,2,3 are corner of topleft, topright, botleft, botright respectively
     topleft, topright, botleft, botright = [], [], [], []
-    trees = [topleft, topright, botleft, botright]
-    test_x = [topleft, topright, botleft, botright]
-    test_y = [topleft, topright, botleft, botright]
+    # trees = [topleft, topright, botleft, botright]
+    # test_x = [topleft, topright, botleft, botright]
+    # test_y = [topleft, topright, botleft, botright]
 
+    forest = []
     for cor in corner:
         print('trees for corner', cor)
+        trees = []
         for dx in range(trainALL.shape[-1] - kernal + 1):
             for dy in range(trainALL.shape[-1] - kernal + 1):
                 cur_train_all = trainALL[:, :, dy:dy + kernal, dx:dx + kernal]
@@ -89,23 +98,43 @@ def get_trees(kernal, timestep, trainALL, testALL):
                 cur_train_y, cur_test_y = get_test_data(cor, cur_train_all, cur_test_all)
                 cur_train_x = cur_train_all[:, :-1, :, :]
                 cur_test_x = cur_test_all[:, :-1, :, :]
-
                 cur_train_x = cur_train_x.reshape(-1, timestep * kernal * kernal)
                 cur_test_x = cur_test_x.reshape(-1, timestep * kernal * kernal)
 
-                test_x.append(cur_test_x)  # for later prediction use
-                test_y.append(cur_test_y)
-
                 cur_model = xgboost_model(cur_train_x, cur_train_y, cur_test_x, cur_test_y)
-                trees[cor].append(cur_model)
 
-    return trees, test_x, test_y
+                tree = xgboost_tree(cur_model, cur_test_x, cur_test_y)
+                trees.append(tree)
+        forest.append(trees)
+
+    return forest
 
 
-def apply_trees(boosters, dataX, datay):
-    for tree in boosters:
-        pass
-        # y_pred = tree.predict(data)
+def predict_multiple(boosters, prediction_len):
+    # for i in range(int(len(test_data) / prediction_len)):
+
+    # for dx in range(len(boosters)):
+    #     for dy in range(len(boosters[0])):
+    #         for i in range(len(dataX[dx][dy])):
+    #             cur_dataX = dataX[dx][dy][i]
+    #             cur_datay = datay[dx][dy][i]
+    #             data_test = xgb.DMatrix(cur_dataX, label=cur_datay)
+    #             y_pred = boosters[dx][dy].predict(data_test)
+
+
+# def predict_sequences_multiple(in_model, test_data, window_size, prediction_len):
+#     # Predict sequence of n steps before shifting prediction run forward by n steps
+#     print('[Model] Predicting Sequences Multiple...')
+#     prediction_seqs = []
+#     for i in range(int(len(test_data) / prediction_len)):
+#         curr_frame = test_data[i * prediction_len]
+#         predicted = []
+#         for j in range(prediction_len):
+#             predicted.append(in_model.predict(curr_frame[newaxis, :, :])[0, 0])
+#             curr_frame = curr_frame[1:]
+#             curr_frame = np.insert(curr_frame, [window_size - 2], predicted[-1], axis=0)
+#         prediction_seqs.append(predicted)
+#     return prediction_seqs
 
 
 if __name__ == '__main__':
@@ -120,9 +149,9 @@ if __name__ == '__main__':
     width = 18
 
     # # organizing data
-    # train_x, test_x = data_ready(leftdown, length, width, coor_path, data_path, configs)
-    # np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/train_x.npy', train_x)
-    # np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/test_x.npy', test_x)
+    # train_all, test_all = data_ready(leftdown, length, width, coor_path, data_path, configs)
+    # np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/train_x.npy', train_all)
+    # np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/test_x.npy', test_all)
 
     # load directly if file exist
     train_all = np.load('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/train_x.npy')
@@ -131,37 +160,10 @@ if __name__ == '__main__':
     print("trainX %s, testX data %s ready" % (train_all.shape, test_all.shape))
 
     input_timesteps = configs['data']['sequence_length'] - 1
-    output_time_length = 20
+    prediction_length = configs['data']['prediction_length']
     pred_times_num = 6
+
     # 此处写死cnn的处理大小为7*7
     cnn_kernel = 7
     all_models = get_trees(cnn_kernel, input_timesteps, train_all, test_all)
-    all_models
-
-    # for t in range(pred_times_num):
-    #     pred_frames_1time = []
-    #     for i in range(output_time_length):
-    #         # if i == 0:
-    #         #     input_frame_train_x = x_train[i]
-    #         #     input_frame_test_x = x_test[i]
-    #         #     # # init_input.shape = (18,18,99)
-    #         #     # init_input = temperature[:, :, t * output_time_length:t * output_time_length + input_time_length]
-    #         #     # # 将init_input reshape变为(1,99,18,18)
-    #         #     # init_input = init_input.transpose(2, 0, 1)
-    #         #     # # init_input = init_input[np.newaxis, :]
-    #         #     # input_frame = init_input
-    #         # else:
-    #         #     input_frame[:, :-1, :, :] = input_frame[:, 1:, :, :]
-    #         #     input_frame[:, -1, :, :] = padding(pred_frame)
-    #
-    #         for cor in corner:
-    #             for dx in range(temperature.shape[0] - cnn_kernel + 1):
-    #                 for dy in range(temperature.shape[1] - cnn_kernel + 1):
-    #                     cur_train_x = train_x[:, :, dy:dy + cnn_kernel, dx:dx + cnn_kernel]
-    #                     cur_test_x = text_x[:, :, dy:dy + cnn_kernel, dx:dx + cnn_kernel]
-    #                     cur_train_y, cur_test_y = get_test_data(cor, cur_train_x, cur_test_x)
-    #
-    #                     cur_train_x = cur_train_x.reshape(-1, input_timesteps * cnn_kernel * cnn_kernel)
-    #                     cur_test_x = cur_test_x.reshape(-1, input_timesteps * cnn_kernel * cnn_kernel)
-    #                     cur_model = xgboost_model(cur_train_x, cur_train_y, cur_test_x, cur_test_y)
-    #                     trees[cor].append(cur_model)
+    predict_multiple(all_models, prediction_length)
