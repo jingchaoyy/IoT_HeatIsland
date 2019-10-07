@@ -7,8 +7,8 @@ from Temp_pred_lpy.data_helper import *
 
 train_x, train_y, test_x, test_y = gen_cnn_data(y_is_center_point=False)
 
-train_x = train_x.reshape(-1, 99 * 49)
-test_x = test_x.reshape(-1, 99 * 49)
+train_x = train_x.reshape(-1, 95 * 49)
+test_x = test_x.reshape(-1, 95 * 49)
 
 data_train = xgb.DMatrix(train_x, label=train_y)
 data_test = xgb.DMatrix(test_x, label=test_y)
