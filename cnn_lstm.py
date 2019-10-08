@@ -156,7 +156,7 @@ def main():
             '9q5csy4', '9q5csy5', '9q5csyh', '9q5csyj']
 
     # data = pd.read_csv('/Users/jc/Documents/GitHub/IoT_HeatIsland_Data/data/LA/joined_49_fillna_1.csv', usecols=coor)
-    data = pd.read_csv('/Users/jc/Documents/GitHub/IoT_HeatIsland_Data/data/LA/tempMatrix_LA.csv', usecols=coor)
+    data = pd.read_csv('../IoT_HeatIsland_Data/data/LA/exp_data/tempMatrix_LA.csv', usecols=coor)
 
     for c in range(len(coor)):
         coor[c] = data[coor[c]]
