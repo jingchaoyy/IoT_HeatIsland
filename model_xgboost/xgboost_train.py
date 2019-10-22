@@ -3,6 +3,11 @@ Created on  2019-09-24
 @author: Jingchao Yang
 """
 from model_xgboost.data_tool import *
+from joblib import dump
+from joblib import load
+import time
+import glob
+import datetime as dt
 
 
 class xgboost_tree:
@@ -67,13 +72,16 @@ def xgboost_model(trainX, trainy, testX, testy):
     return bst
 
 
-def get_trees(kernal, timestep, trainALL, testALL):
+def get_trees(kernal, timestep, trainALL, testALL, model_path, models_test_x_path, models_test_y_path):
     """
 
     :param kernal:
     :param timestep:
-    :param trainX:
-    :param testX:
+    :param trainALL:
+    :param testALL:
+    :param model_path:
+    :param models_test_x_path:
+    :param models_test_y_path:
     :return:
     """
     print('start building trees')
@@ -81,7 +89,7 @@ def get_trees(kernal, timestep, trainALL, testALL):
     forest = []
     for cor in corner:
         print('trees for corner', cor)
-        trees = []
+        # trees = []
         for dx in range(trainALL.shape[-1] - kernal + 1):
             for dy in range(trainALL.shape[-1] - kernal + 1):
                 cur_train_all = trainALL[:, :, dy:dy + kernal, dx:dx + kernal]
@@ -95,10 +103,43 @@ def get_trees(kernal, timestep, trainALL, testALL):
                 cur_model = xgboost_model(cur_train_x, cur_train_y, cur_test_x, cur_test_y)
 
                 tree = xgboost_tree(cur_model, cur_test_x, cur_test_y)
-                trees.append(tree)
-        forest.append(trees)
+                forest.append(tree)
+
+                # save models and data
+                date = dt.datetime.now().strftime('%d%m%Y-%H%M%S')
+                sname = date + '-' + str(cor) + '-' + str(dx) + '-' + str(dy)
+                dump(cur_model, model_path + sname + ".dat")
+                np.save(models_test_x_path + sname + '.npy', cur_test_x)
+                np.save(models_test_y_path + sname + '.npy', cur_test_y)
+
+    # forest.append(trees)
+    forest = np.array(forest)
+    forest = forest.reshape(len(corner), timestep + 1, timestep + 1)  # 4*12*12
 
     return forest
+
+
+def load_models(model_path, models_test_x_path, models_test_y_path):
+    """
+
+    :param model_path:
+    :param models_test_x_path:
+    :param models_test_y_path:
+    :return:
+    """
+    all_models = []
+    models = [f for f in glob.glob(model_path + '*.dat')]
+    models_test_x = [f for f in glob.glob(models_test_x_path + '*.npy')]
+    models_test_y = [f for f in glob.glob(models_test_y_path + '*.npy')]
+
+    for i in range(len(models)):
+        model = load(models[i])
+        test_x = np.load(models_test_x[i])
+        test_y = np.load(models_test_y[i])
+
+        all_models.append(xgboost_tree(model, test_x, test_y))
+
+    return all_models
 
 
 def padding(kernal, pad_length, pad_width, models):
@@ -117,7 +158,7 @@ def padding(kernal, pad_length, pad_width, models):
     model_width_overlay = model_width * 2 - pad_width
 
     org_models = np.arange(pad_length * pad_width)
-    org_models.reshape(pad_length, pad_width)
+    org_models = org_models.reshape(pad_length, pad_width)
 
     for i in range(len(models)):
         models = models[i]
@@ -194,22 +235,15 @@ if __name__ == '__main__':
     data_path = '../../IoT_HeatIsland_Data/data/LA/exp_data/tempMatrix_LA.csv'
     configs = json.load(open('../config.json', 'r'))
 
+    m_path = '../../IoT_HeatIsland_Data/data/LA/exp_data/xgboost_models/models/'
+    m_test_x_path = '../../IoT_HeatIsland_Data/data/LA/exp_data/xgboost_models/models_test_x/'
+    m_test_y_path = '../../IoT_HeatIsland_Data/data/LA/exp_data/xgboost_models/models_test_y/'
+
     # 区域的右下角坐标
     leftdown = [287, 236]
     # 区域的长宽
     length = 18
     width = 18
-
-    # # organizing data
-    # train_all, test_all = data_ready(leftdown, length, width, coor_path, data_path, configs)
-    # np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/train_x.npy', train_all)
-    # np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/test_x.npy', test_all)
-
-    # load directly if file exist
-    train_all = np.load('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/train_x.npy')
-    test_all = np.load('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/test_x.npy')
-
-    print("trainX %s, testX data %s ready" % (train_all.shape, test_all.shape))
 
     input_timesteps = configs['data']['sequence_length'] - 1
     prediction_length = configs['data']['prediction_length']
@@ -217,7 +251,28 @@ if __name__ == '__main__':
 
     # 此处写死cnn的处理大小为7*7
     cnn_kernel = 7
-    all_models = get_trees(cnn_kernel, input_timesteps, train_all, test_all)
+
+    if os.listdir(m_path) == []:
+        # # organizing data
+        # train_all, test_all = data_ready(leftdown, length, width, coor_path, data_path, configs)
+        # np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/train_x.npy', train_all)
+        # np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/test_x.npy', test_all)
+
+        # load directly if file exist
+        train_all = np.load('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/train_x.npy')
+        test_all = np.load('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/test_x.npy')
+
+        print("trainX %s, testX data %s ready" % (train_all.shape, test_all.shape))
+
+        start = time.time()
+        all_models = get_trees(cnn_kernel, input_timesteps, train_all, test_all, m_path, m_test_x_path, m_test_y_path)
+        end = time.time()
+        print('model building time:', end - start)
+    else:
+        # load models directly
+        all_models = load_models(m_path, m_test_x_path, m_test_y_path)
+        all_models = np.array(all_models)
+        all_models = all_models.reshape(4, length - cnn_kernel + 1, width - cnn_kernel + 1)  # 4*12*12
 
     # model reorganize to remove overlays (from 4 different 12*12 to 1 18*18)
     all_models = padding(cnn_kernel, length, width, all_models)
