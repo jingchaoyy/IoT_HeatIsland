@@ -101,6 +101,49 @@ def get_trees(kernal, timestep, trainALL, testALL):
     return forest
 
 
+def padding(kernal, pad_length, pad_width, models):
+    """
+    padding (organizing) a 18*18 grid with four 12*12 models
+
+    :param kernal: 12
+    :param pad_length: 18
+    :param pad_width: 18
+    :param models: len(models) == 4
+    :return:
+    """
+    model_length = pad_length - kernal + 1
+    model_width = pad_width - kernal + 1
+    model_length_overlay = model_length * 2 - pad_length
+    model_width_overlay = model_width * 2 - pad_width
+
+    org_models = np.arange(pad_length * pad_width)
+    org_models.reshape(pad_length, pad_width)
+
+    for i in range(len(models)):
+        models = models[i]
+        models = np.array(models)
+        models.reshape(model_length, model_width)  # 12*12
+        if i == 0:  # all model in models (12*12) will be applied to the org_models (18*18)
+            for j0 in range(model_length):
+                for k0 in range(model_width):
+                    org_models[j0][k0] = models[j0][k0]
+        if i == 1:
+            for j1 in range(model_length):
+                for k1 in range(pad_width - model_width):
+                    org_models[j1][model_width + k1] = models[j1][model_width_overlay + k1]
+        if i == 2:
+            for j2 in range(pad_length - model_length):
+                for k2 in range(model_width):
+                    org_models[model_length + j2][k2] = models[model_length_overlay + j2][k2]
+        if i == 3:
+            for j3 in range(pad_length - model_length):
+                for k3 in range(pad_width - model_width):
+                    org_models[model_length + j3][model_width + k3] = \
+                        models[model_length_overlay + j3][model_width_overlay + k3]
+
+    return org_models.reshape(pad_length, pad_width)
+
+
 def predict_multiple(boosters, prediction_len, kernal, win_l, win_w):
     """
 
@@ -127,7 +170,7 @@ def predict_multiple(boosters, prediction_len, kernal, win_l, win_w):
             boosters = np.array(boosters)
             boosters.reshape(win_l, win_w)
             predicted = np.array(predicted)
-            predicted.reshape(kernal, kernal)
+            predicted.reshape(win_l, win_w)
             for dx in range(boosters.shape[-1] - kernal + 1):
                 for dy in range(boosters.shape[-1] - kernal + 1):
                     # get each 7*7 predicted from 18*18
@@ -176,6 +219,7 @@ if __name__ == '__main__':
     cnn_kernel = 7
     all_models = get_trees(cnn_kernel, input_timesteps, train_all, test_all)
 
-    # model reorganize to remove overlays (from 4 different 12*12 to 1 18*18), a function needed
+    # model reorganize to remove overlays (from 4 different 12*12 to 1 18*18)
+    all_models = padding(cnn_kernel, length, width, all_models)
 
     predictions = predict_multiple(all_models, prediction_length, cnn_kernel, length, width)
