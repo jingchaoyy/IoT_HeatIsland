@@ -92,6 +92,7 @@ def get_trees(kernal, timestep, trainALL, testALL, model_path, models_test_x_pat
         # trees = []
         for dx in range(trainALL.shape[-1] - kernal + 1):
             for dy in range(trainALL.shape[-1] - kernal + 1):
+                # set the frame to 7*7 (using 7*7 frame for 1 sensor point prediction)
                 cur_train_all = trainALL[:, :, dy:dy + kernal, dx:dx + kernal]
                 cur_test_all = testALL[:, :, dy:dy + kernal, dx:dx + kernal]
                 cur_train_y, cur_test_y = get_test_data(cor, cur_train_all, cur_test_all)
@@ -112,7 +113,6 @@ def get_trees(kernal, timestep, trainALL, testALL, model_path, models_test_x_pat
                 np.save(models_test_x_path + sname + '.npy', cur_test_x)
                 np.save(models_test_y_path + sname + '.npy', cur_test_y)
 
-    # forest.append(trees)
     forest = np.array(forest)
     forest = forest.reshape(len(corner), timestep + 1, timestep + 1)  # 4*12*12
 
@@ -157,27 +157,25 @@ def padding(kernal, pad_length, pad_width, models):
     model_length_overlay = model_length * 2 - pad_length
     model_width_overlay = model_width * 2 - pad_width
 
-    # org_models = np.arange(pad_length * pad_width)
-    # org_models = org_models.reshape(pad_length, pad_width)
-    org_models = np.empty([pad_length, pad_width], dtype=xgboost_tree)
+    org_models = np.empty([pad_length, pad_width], dtype=xgboost_tree)  # initial a empty 18*18 array with defined type
 
     for i in range(len(models)):
         m = models[i]
         m = np.array(m)
         m.reshape(model_length, model_width)  # 12*12
-        if i == 0:  # all model in models (12*12) will be applied to the org_models (18*18)
+        if i == 0:  # all model in models[0] (12*12) will be applied to the org_models (18*18)
             for j0 in range(model_length):
                 for k0 in range(model_width):
                     org_models[j0][k0] = m[j0][k0]
-        elif i == 1:
+        elif i == 1:  # only partial left models in model[1] will be used to fill the top right 18*18 frame
             for j1 in range(model_length):
                 for k1 in range(pad_width - model_width):
                     org_models[j1][model_width + k1] = m[j1][model_width_overlay + k1]
-        elif i == 2:
+        elif i == 2:  # only partial bottom models in model[2] will be used to fill bottom left of the 18*18 frame
             for j2 in range(pad_length - model_length):
                 for k2 in range(model_width):
                     org_models[model_length + j2][k2] = m[model_length_overlay + j2][k2]
-        elif i == 3:
+        elif i == 3:  # only partial bottom right models in model[3] will be used to fill bottom right of the frame
             for j3 in range(pad_length - model_length):
                 for k3 in range(pad_width - model_width):
                     org_models[model_length + j3][model_width + k3] = \
@@ -197,41 +195,55 @@ def predict_multiple(boosters, prediction_len, kernal, win_l, win_w):
     :return:
     """
     prediction_seqs_all = []
-    for i in range(int(len(boosters[0].test_data_x.shape[0]) / prediction_len)):
+    sequence = int((boosters[0].test_data_x.shape[0]) / prediction_len)
+    for i in range(sequence):
         prediction_seqs = []
-        for k in range(prediction_len):
+        for j in range(prediction_len):
             predicted = []
-            for j in range(len(boosters)):
-                rolling_x = boosters[j].test_data_x[i * prediction_len]
-                rolling_y = boosters[j].test_data_y[i * prediction_len]
+            for k in range(len(boosters)):
+                rolling_x = boosters[k].test_data_x[i * prediction_len]  # 7*7*11
+                rolling_y = boosters[k].test_data_y[i * prediction_len]  # 1
+                rolling_x = rolling_x[np.newaxis, ...]
 
                 data_test = xgb.DMatrix(rolling_x, label=rolling_y)
-                y_pred = boosters[j].model.predict(data_test)
+                y_pred = boosters[k].model.predict(data_test)
                 predicted.append(y_pred)
 
-            boosters = np.array(boosters)
-            boosters.reshape(win_l, win_w)
-            predicted = np.array(predicted)
-            predicted.reshape(win_l, win_w)
-            for dx in range(boosters.shape[-1] - kernal + 1):
-                for dy in range(boosters.shape[-1] - kernal + 1):
-                    # get each 7*7 predicted from 18*18
-                    pre = predicted[dy:dy + kernal, dx:dx + kernal]
-                    # remove the t0 data (7*7)
-                    boosters[dy:dy + kernal, dx:dx + kernal].test_data_x[i * prediction_len] = \
-                        boosters[dy:dy + kernal, dx:dx + kernal].test_data_x[i * prediction_len][1:]
-                    # add the newly predicted (t+1) to update the boosters
-                    boosters[dy:dy + kernal, dx:dx + kernal].test_data_x[i * prediction_len] = \
-                        boosters[dy:dy + kernal, dx:dx + kernal].test_data_x[i * prediction_len] + [pre]
-
-            boosters.reshape(1, win_l * win_w)
-            predicted.reshape(1, kernal * kernal)
             prediction_seqs.append(predicted)  # store each predicted 18*18 frame for a prediction_len
-        prediction_seqs_all.append(prediction_seqs)
+
+            boosters = np.array(boosters)
+            boosters = boosters.reshape(win_l, win_w)
+            predicted = np.array(predicted)
+            predicted = predicted.reshape(win_l, win_w)
+
+            '''
+            replacing data with predicted result (t1) for each train_x (7*7) in each model (18*18) 
+            so that next time the model will used the updated train_x to predict t0
+            '''
+            for dx in range(boosters.shape[0]):
+                for dy in range(boosters.shape[1]):
+                    if dx + kernal < boosters.shape[0] and dy + kernal < boosters.shape[1]:
+                        cur_pre = predicted[dx:dx + kernal, dy:dy + kernal]
+                    elif dx + kernal < boosters.shape[0] and dy + kernal >= boosters.shape[1]:
+                        cur_pre = predicted[dx:dx + kernal, dy - kernal:dy]
+                    elif dx + kernal >= boosters.shape[0] and dy + kernal < boosters.shape[1]:
+                        cur_pre = predicted[dx - kernal:dx, dy:dy + kernal]
+                    else:
+                        cur_pre = predicted[dx - kernal:dx, dy - kernal:dy]
+
+                    boosters[dx][dy].test_data_x[i * prediction_len] = np.append(
+                        boosters[dx][dy].test_data_x[i * prediction_len][kernal * kernal:], cur_pre)
+
+            boosters = boosters.flatten()
+
+        prediction_seqs_all.append(prediction_seqs)  # sequence*prediction_len*win_l*win_w --> 16*18*18*18
+    prediction_seqs_all = np.array(prediction_seqs_all)
+    prediction_seqs_all = prediction_seqs_all.reshape(sequence, prediction_len, win_l, win_w)
     return prediction_seqs_all
 
 
 if __name__ == '__main__':
+    '''setting parameters'''
     coor_path = '../../IoT_HeatIsland_Data/data/LA/exp_data/2019042910withCoordinate.csv'
     data_path = '../../IoT_HeatIsland_Data/data/LA/exp_data/tempMatrix_LA.csv'
     configs = json.load(open('../config.json', 'r'))
@@ -253,30 +265,45 @@ if __name__ == '__main__':
     # 此处写死cnn的处理大小为7*7
     cnn_kernel = 7
 
+    '''getting data'''
+    # print('preparing data for training and testing...')
+    # train_all, test_all = data_ready(leftdown, length, width, coor_path, data_path, configs)
+    # np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/train_x.npy', train_all)
+    # np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/test_x.npy', test_all)
+
+    # load directly if file exist
+    train_all = np.load('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/train_x.npy')
+    test_all = np.load('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/test_x.npy')
+    print("trainX %s, testX data %s ready" % (train_all.shape, test_all.shape))
+
+    '''building/loading models'''
     if os.listdir(m_path) == []:
-        # # organizing data
-        # train_all, test_all = data_ready(leftdown, length, width, coor_path, data_path, configs)
-        # np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/train_x.npy', train_all)
-        # np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/test_x.npy', test_all)
-
-        # load directly if file exist
-        train_all = np.load('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/train_x.npy')
-        test_all = np.load('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/test_x.npy')
-
-        print("trainX %s, testX data %s ready" % (train_all.shape, test_all.shape))
-
+        print('building models, this may take some time...')
         start = time.time()
         all_models = get_trees(cnn_kernel, input_timesteps, train_all, test_all, m_path, m_test_x_path, m_test_y_path)
         end = time.time()
-        print('model building time:', end - start)
+        print('model building done, time:', end - start)
     else:
         # load models directly
+        print('models found, loading...')
         all_models = load_models(m_path, m_test_x_path, m_test_y_path)
         all_models = np.array(all_models)
         all_models = all_models.reshape(4, length - cnn_kernel + 1, width - cnn_kernel + 1)  # 4*12*12
+        print('model loading finished :)')
 
-    # model reorganize to remove overlays (from 4 different 12*12 to 1 18*18)
+    ''' padding generated models
+    model reorganize to remove overlays (from 4 different 12*12 to 1 18*18)
+    '''
     all_models = padding(cnn_kernel, length, width, all_models)
     all_models = all_models.flatten()
 
-    predictions = predict_multiple(all_models, prediction_length, cnn_kernel, length, width)
+    '''model applied for prediction'''
+    print('start prediction')
+    start = time.time()
+    predictions = predict_multiple(all_models.tolist(), prediction_length, cnn_kernel, length, width)
+    end = time.time()
+    print('prediction time:', end - start)
+
+    '''save results'''
+    np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/xgboost_models/result/prediction.npy', predictions)
+    print('result saved')
