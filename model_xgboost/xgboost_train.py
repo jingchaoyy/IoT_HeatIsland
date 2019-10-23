@@ -157,30 +157,31 @@ def padding(kernal, pad_length, pad_width, models):
     model_length_overlay = model_length * 2 - pad_length
     model_width_overlay = model_width * 2 - pad_width
 
-    org_models = np.arange(pad_length * pad_width)
-    org_models = org_models.reshape(pad_length, pad_width)
+    # org_models = np.arange(pad_length * pad_width)
+    # org_models = org_models.reshape(pad_length, pad_width)
+    org_models = np.empty([pad_length, pad_width], dtype=xgboost_tree)
 
     for i in range(len(models)):
-        models = models[i]
-        models = np.array(models)
-        models.reshape(model_length, model_width)  # 12*12
+        m = models[i]
+        m = np.array(m)
+        m.reshape(model_length, model_width)  # 12*12
         if i == 0:  # all model in models (12*12) will be applied to the org_models (18*18)
             for j0 in range(model_length):
                 for k0 in range(model_width):
-                    org_models[j0][k0] = models[j0][k0]
-        if i == 1:
+                    org_models[j0][k0] = m[j0][k0]
+        elif i == 1:
             for j1 in range(model_length):
                 for k1 in range(pad_width - model_width):
-                    org_models[j1][model_width + k1] = models[j1][model_width_overlay + k1]
-        if i == 2:
+                    org_models[j1][model_width + k1] = m[j1][model_width_overlay + k1]
+        elif i == 2:
             for j2 in range(pad_length - model_length):
                 for k2 in range(model_width):
-                    org_models[model_length + j2][k2] = models[model_length_overlay + j2][k2]
-        if i == 3:
+                    org_models[model_length + j2][k2] = m[model_length_overlay + j2][k2]
+        elif i == 3:
             for j3 in range(pad_length - model_length):
                 for k3 in range(pad_width - model_width):
                     org_models[model_length + j3][model_width + k3] = \
-                        models[model_length_overlay + j3][model_width_overlay + k3]
+                        m[model_length_overlay + j3][model_width_overlay + k3]
 
     return org_models.reshape(pad_length, pad_width)
 
@@ -276,5 +277,6 @@ if __name__ == '__main__':
 
     # model reorganize to remove overlays (from 4 different 12*12 to 1 18*18)
     all_models = padding(cnn_kernel, length, width, all_models)
+    all_models = all_models.flatten()
 
     predictions = predict_multiple(all_models, prediction_length, cnn_kernel, length, width)
