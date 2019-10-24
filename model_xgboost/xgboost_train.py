@@ -72,9 +72,11 @@ def xgboost_model(trainX, trainy, testX, testy):
     return bst
 
 
-def get_trees(kernal, timestep, trainALL, testALL, model_path, models_test_x_path, models_test_y_path):
+def get_trees(win_l, win_w, kernal, timestep, trainALL, testALL, model_path, models_test_x_path, models_test_y_path):
     """
 
+    :param win_l:
+    :param win_w:
     :param kernal:
     :param timestep:
     :param trainALL:
@@ -114,7 +116,7 @@ def get_trees(kernal, timestep, trainALL, testALL, model_path, models_test_x_pat
                 np.save(models_test_y_path + sname + '.npy', cur_test_y)
 
     forest = np.array(forest)
-    forest = forest.reshape(len(corner), timestep + 1, timestep + 1)  # 4*12*12
+    forest = forest.reshape(len(corner), win_l - kernal + 1, win_w - kernal + 1)  # 4*12*12
 
     return forest
 
@@ -268,19 +270,20 @@ if __name__ == '__main__':
     '''getting data'''
     # print('preparing data for training and testing...')
     # train_all, test_all = data_ready(leftdown, length, width, coor_path, data_path, configs)
-    # np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/train_x.npy', train_all)
-    # np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/test_x.npy', test_all)
+    # np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/xgboost_models/train_x.npy', train_all)
+    # np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/xgboost_models/test_x.npy', test_all)
 
     # load directly if file exist
-    train_all = np.load('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/train_x.npy')
-    test_all = np.load('../../IoT_HeatIsland_Data/data/LA/exp_data/processed/test_x.npy')
+    train_all = np.load('../../IoT_HeatIsland_Data/data/LA/exp_data/xgboost_models/train_x.npy')
+    test_all = np.load('../../IoT_HeatIsland_Data/data/LA/exp_data/xgboost_models/test_x.npy')
     print("trainX %s, testX data %s ready" % (train_all.shape, test_all.shape))
 
     '''building/loading models'''
     if os.listdir(m_path) == []:
         print('building models, this may take some time...')
         start = time.time()
-        all_models = get_trees(cnn_kernel, input_timesteps, train_all, test_all, m_path, m_test_x_path, m_test_y_path)
+        all_models = get_trees(length, width, cnn_kernel, input_timesteps, train_all, test_all, m_path, m_test_x_path,
+                               m_test_y_path)
         end = time.time()
         print('model building done, time:', end - start)
     else:
