@@ -300,6 +300,18 @@ if __name__ == '__main__':
     all_models = padding(cnn_kernel, length, width, all_models)
     all_models = all_models.flatten()
 
+    '''getting ground truth'''
+    tru = []
+    time_len = len(all_models[0].test_data_y)
+    for len in range(time_len):
+        tru_temp = []
+        for mo in all_models:
+            tru_temp.append(mo.test_data_y[len])
+        tru.append(tru_temp)
+    tru = np.array(tru)
+    tru = tru.reshape(-1, length, width)
+    np.save('../../IoT_HeatIsland_Data/data/LA/exp_data/xgboost_models/result/truth.npy', tru)
+
     '''model applied for prediction'''
     print('start prediction')
     start = time.time()
