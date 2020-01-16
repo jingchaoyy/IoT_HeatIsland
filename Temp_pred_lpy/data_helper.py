@@ -7,9 +7,12 @@ import torch
 import json
 import os
 from cnn_lstm import get_data
+from sklearn.metrics import r2_score
+import math
+from sklearn.metrics import mean_squared_error
 
 
-def gen_train_and_test_data(csv_path='/../../IoT_HeatIsland_Data/data/LA/9q5css6_lpy.csv', input_length=100,
+def gen_train_and_test_data(csv_path='../../IoT_HeatIsland_Data/data/LA/exp_data/9q5css6_lpy.csv', input_length=100,
                             test_ratio=0.4, shuffle=True, cut_bin=True, x_is_percentage=False, y_is_percentage=False):
     df = pd.read_csv(csv_path, header=None)
     s = df[0]
@@ -126,9 +129,9 @@ def plot_results(predicted_data, true_data):
 
 def plot_results_multiple(test_x, test_y, prediction_len, model, model_type):
     assert model_type in ['gbdt', 'xgboost', 'torch_dnn']
-    fig = plt.figure(facecolor='white')
-    ax = fig.add_subplot(111)
-    ax.plot(test_y, label='True Data')
+    # fig = plt.figure(facecolor='white')
+    # ax = fig.add_subplot(111)
+    # ax.plot(test_y, label='True Data')
     pred_multiple_all = []
     for i in range(test_x.shape[0] // prediction_len):
         pred_multiple = []
@@ -163,10 +166,25 @@ def plot_results_multiple(test_x, test_y, prediction_len, model, model_type):
     fig = plt.figure(facecolor='white')
     ax = fig.add_subplot(111)
     ax.plot(test_y, label='True Data')
-    for i in range(len(pred_multiple_all)):
-        padding = [None for p in range(i * prediction_len)]
-        plt.plot(padding + pred_multiple_all[i], label='Prediction')
-        plt.legend()
+    # for i in range(len(pred_multiple_all)):
+    #     padding = [None for p in range(i * prediction_len)]
+    #     plt.plot(padding + pred_multiple_all[i], label='Prediction')
+    pred_multiple_all_merge = [j for i in pred_multiple_all for j in i]
+
+    testScore = math.sqrt(mean_squared_error(test_y[:len(pred_multiple_all_merge)], pred_multiple_all_merge))
+    print('Test Score: %.2f RMSE' % (testScore))
+
+    lstm_score = r2_score(test_y[:len(pred_multiple_all_merge)], pred_multiple_all_merge)
+    print("R^2 Score of model = ", lstm_score)
+
+
+    fig = plt.figure(facecolor='white')
+    ax = fig.add_subplot(111)
+    plt.plot(test_y, label='True Data')
+    plt.plot(pred_multiple_all_merge, label='Prediction')
+    plt.legend()
+    plt.show()
+    plt.legend()
     plt.show()
 
     print('multiple Printed!')

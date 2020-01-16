@@ -69,7 +69,7 @@ colorList.reverse()
 linear = cm.LinearColormap(colorList, vmin=df_geo['Temperature'].min(), vmax=df_geo['Temperature'].max())
 linear = linear.to_step(17)
 
-magnitudes = pd.read_csv('../output/chicago_magnitudes_polygons14.csv')
+magnitudes = pd.read_csv('../output/LA_magnitudes_polygons14.csv')
 magnitudes['Temperature'] = magnitudes['Temperature'].apply(lambda x: round(x * 2) / 2)
 mags_dict = magnitudes.set_index('id')['Temperature']
 
