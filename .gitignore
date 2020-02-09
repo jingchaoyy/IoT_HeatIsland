@@ -20,3 +20,4 @@ Temp_pred_lpy/DNN-model.ckpt
 *.ckpt
 *.pyc
 *.log
+*.xlsx
