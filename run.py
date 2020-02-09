@@ -24,6 +24,9 @@ from keras.layers.convolutional import Conv2D
 from keras.layers.convolutional import MaxPooling2D
 from keras.layers import Flatten
 from keras.layers import TimeDistributed
+from sklearn.metrics import r2_score
+import math
+from sklearn.metrics import mean_squared_error
 
 
 def plot_results(predicted_data, true_data):
@@ -43,8 +46,10 @@ def plot_results_multiple(predicted_data, true_data, prediction_len):
     for i, data in enumerate(predicted_data):
         padding = [None for p in range(i * prediction_len)]
         plt.plot(padding + data, label='Prediction')
-        plt.title('prediction length ' + str(prediction_len))
-        plt.legend()
+        plt.xlabel("Time")
+        plt.ylabel("Temperature (F)")
+        # plt.title('prediction length ' + str(prediction_len))
+        # plt.legend()
     plt.show()
 
 
@@ -141,8 +146,8 @@ def main():
         nor_ = test_nor[prdt * configs['data']['prediction_length']]
         predictions[prdt] = [nor_ * (j + 1) for j in predictions[prdt]]
 
+    '''result plot'''
     plot_results_multiple(predictions, y_test, configs['data']['prediction_length'])
-    # plot_results(predictions, y_test)
 
     # model = Model()
     # model.build_lstm(configs)
@@ -161,6 +166,17 @@ def main():
     #                                                configs['data']['sequence_length'])
     #
     # plot_results_multiple(predictions, y_test, configs['data']['sequence_length'])
+
+    '''result evaluation'''
+    # pred_multiple_all_merge = [j for i in predictions for j in i]
+    #
+    # testScore = math.sqrt(mean_squared_error(y_test[:len(pred_multiple_all_merge)], pred_multiple_all_merge))
+    # print('Test Score: %.2f RMSE' % (testScore))
+    #
+    # lstm_score = r2_score(y_test[:len(pred_multiple_all_merge)], pred_multiple_all_merge)
+    # print("R^2 Score of model = ", lstm_score)
+
+    # plot_results(predictions, y_test)
 
 
 if __name__ == '__main__':
