@@ -13,7 +13,7 @@ from sklearn.metrics import mean_squared_error
 
 
 def gen_train_and_test_data(csv_path='../../IoT_HeatIsland_Data/data/LA/exp_data/9q5css6_lpy.csv', input_length=100,
-                            test_ratio=0.4, shuffle=True, cut_bin=True, x_is_percentage=False, y_is_percentage=False):
+                            test_ratio=0.25, shuffle=True, cut_bin=True, x_is_percentage=False, y_is_percentage=False):
     df = pd.read_csv(csv_path, header=None)
     s = df[0]
     data_array = np.array(s)
@@ -166,22 +166,26 @@ def plot_results_multiple(test_x, test_y, prediction_len, model, model_type):
     fig = plt.figure(facecolor='white')
     ax = fig.add_subplot(111)
     ax.plot(test_y, label='True Data')
-    # for i in range(len(pred_multiple_all)):
-    #     padding = [None for p in range(i * prediction_len)]
-    #     plt.plot(padding + pred_multiple_all[i], label='Prediction')
-    pred_multiple_all_merge = [j for i in pred_multiple_all for j in i]
+    plt.xlabel("Time")
+    plt.ylabel("Temperature (F)")
+    for i in range(len(pred_multiple_all)):
+        padding = [None for p in range(i * prediction_len)]
+        plt.plot(padding + pred_multiple_all[i], label='Prediction')
 
-    testScore = math.sqrt(mean_squared_error(test_y[:len(pred_multiple_all_merge)], pred_multiple_all_merge))
-    print('Test Score: %.2f RMSE' % (testScore))
+    '''result evaluation'''
+    # pred_multiple_all_merge = [j for i in pred_multiple_all for j in i]
 
-    lstm_score = r2_score(test_y[:len(pred_multiple_all_merge)], pred_multiple_all_merge)
-    print("R^2 Score of model = ", lstm_score)
+    # testScore = math.sqrt(mean_squared_error(test_y[:len(pred_multiple_all_merge)], pred_multiple_all_merge))
+    # print('Test Score: %.2f RMSE' % (testScore))
+    #
+    # lstm_score = r2_score(test_y[:len(pred_multiple_all_merge)], pred_multiple_all_merge)
+    # print("R^2 Score of model = ", lstm_score)
 
 
     fig = plt.figure(facecolor='white')
     ax = fig.add_subplot(111)
     plt.plot(test_y, label='True Data')
-    plt.plot(pred_multiple_all_merge, label='Prediction')
+    # plt.plot(pred_multiple_all_merge, label='Prediction')
     plt.legend()
     plt.show()
     plt.legend()
