@@ -195,6 +195,7 @@ def plot_results_multiple(test_x, test_y, prediction_len, model, model_type, fil
 
     '''save to csv'''
     result = pd.DataFrame(index=np.arange(max(len(test_y), len(pred_multiple_all))))
+    result.index.name = 'time'
     result['tru'] = pd.Series(test_y.reshape(test_y.size))
     result['prediction'] = pd.Series([j.item() for i in pred_multiple_all for j in i])
     result.to_csv('../../IoT_HeatIsland_Data/data/LA/exp_data/result_single_point_prediction_GBDT/'
