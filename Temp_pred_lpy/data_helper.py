@@ -12,11 +12,11 @@ import math
 from sklearn.metrics import mean_squared_error
 
 
-def gen_train_and_test_data(csv_path='../../IoT_HeatIsland_Data/data/LA/exp_data/9q5css6_lpy.csv', input_length=100,
+def gen_train_and_test_data(data_array=None, input_length=100,
                             test_ratio=0.25, shuffle=True, cut_bin=True, x_is_percentage=False, y_is_percentage=False):
-    df = pd.read_csv(csv_path, header=None)
-    s = df[0]
-    data_array = np.array(s)
+    # df = pd.read_csv(csv_path, header=None)
+    # s = df[0]
+    # data_array = np.array(s)
 
     # 对温度进行分箱处理
     if cut_bin:
@@ -127,7 +127,7 @@ def plot_results(predicted_data, true_data):
     plt.show()
 
 
-def plot_results_multiple(test_x, test_y, prediction_len, model, model_type):
+def plot_results_multiple(test_x, test_y, prediction_len, model, model_type, filename):
     assert model_type in ['gbdt', 'xgboost', 'torch_dnn']
     # fig = plt.figure(facecolor='white')
     # ax = fig.add_subplot(111)
@@ -162,15 +162,27 @@ def plot_results_multiple(test_x, test_y, prediction_len, model, model_type):
 
         pred_multiple_all.append(pred_multiple)
 
-    # plot_results(pred_multiple,true_data)
-    fig = plt.figure(facecolor='white')
-    ax = fig.add_subplot(111)
-    ax.plot(test_y, label='True Data')
-    plt.xlabel("Time")
-    plt.ylabel("Temperature (F)")
-    for i in range(len(pred_multiple_all)):
-        padding = [None for p in range(i * prediction_len)]
-        plt.plot(padding + pred_multiple_all[i], label='Prediction')
+    '''plot result'''
+    # # plot_results(pred_multiple,true_data)
+    # fig = plt.figure(facecolor='white')
+    # ax = fig.add_subplot(111)
+    # ax.plot(test_y, label='True Data')
+    # plt.xlabel("Time")
+    # plt.ylabel("Temperature (F)")
+    # for i in range(len(pred_multiple_all)):
+    #     padding = [None for p in range(i * prediction_len)]
+    #     plt.plot(padding + pred_multiple_all[i], label='Prediction')
+
+    # fig = plt.figure(facecolor='white')
+    # ax = fig.add_subplot(111)
+    # plt.plot(test_y, label='True Data')
+    # # plt.plot(pred_multiple_all_merge, label='Prediction')
+    # plt.legend()
+    # plt.show()
+    # plt.legend()
+    # plt.show()
+    #
+    # print('multiple Printed!')
 
     '''result evaluation'''
     # pred_multiple_all_merge = [j for i in pred_multiple_all for j in i]
@@ -181,14 +193,9 @@ def plot_results_multiple(test_x, test_y, prediction_len, model, model_type):
     # lstm_score = r2_score(test_y[:len(pred_multiple_all_merge)], pred_multiple_all_merge)
     # print("R^2 Score of model = ", lstm_score)
 
-
-    fig = plt.figure(facecolor='white')
-    ax = fig.add_subplot(111)
-    plt.plot(test_y, label='True Data')
-    # plt.plot(pred_multiple_all_merge, label='Prediction')
-    plt.legend()
-    plt.show()
-    plt.legend()
-    plt.show()
-
-    print('multiple Printed!')
+    '''save to csv'''
+    result = pd.DataFrame(index=np.arange(max(len(test_y), len(pred_multiple_all))))
+    result['tru'] = pd.Series(test_y.reshape(test_y.size))
+    result['prediction'] = pd.Series([j.item() for i in pred_multiple_all for j in i])
+    result.to_csv('../../IoT_HeatIsland_Data/data/LA/exp_data/result_single_point_prediction_GBDT/'
+                  + filename + '.csv')
