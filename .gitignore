@@ -21,3 +21,5 @@ Temp_pred_lpy/DNN-model.ckpt
 *.pyc
 *.log
 *.xlsx
+*.swp
+.DS_Store
