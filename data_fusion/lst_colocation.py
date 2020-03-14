@@ -23,9 +23,7 @@ def modis_conv(in_proj):
     modis_proj = pyproj.CRS("+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 +b=6371007.181 +units=km +no_defs")
     latlon_proj = pyproj.CRS(proj='latlong')
 
-    y1 = [4447.802]
-    x1 = [-11119.51]
-    out_latlon = pyproj.transform(modis_proj, latlon_proj, x1, y1)
+    out_latlon = pyproj.transform(modis_proj, latlon_proj, in_proj.values[:, 0], in_proj.values[:, 1])
 
     return out_latlon
 
@@ -67,53 +65,75 @@ def get_files(dir, ext):
     return allfiles, len(allfiles)
 
 
-def extract_merra_by_name(filename, dsname):
+def extract_merra_by_name(filename, dsname, m_lat, m_lon):
     """
 
     :param filename:
     :param dsname:
+    :param m_lat:
+    :param m_lon:
     :return:
     """
     h4_data = Dataset(filename)
     ds = h4_data[dsname][:]
-    lat = np.array(h4_data['lat'][:])
-    lon = np.array(h4_data['lon'][:])
     result = []
     for t in range(ds.shape[0]):
-        temp = pd.DataFrame(data=h4_data[dsname][:][t], index=lat, columns=lon)
+        # using current (self) index for DataFrame index and column
+        temp = pd.DataFrame(data=h4_data[dsname][:][t])
         result.append(temp)
     h4_data.close()
     return result
 
 
-def extract_modis_by_name(filename, dsname):
+def extract_modis_by_name(filename, dsname, m_lat, m_lon):
     """
 
     :param filename:
     :param dsname:
+    :param m_lat:
+    :param m_lon:
     :return:
     """
     hdf = SD.SD(filename)
-    LST_day = hdf.select(dsname)
-    temp_d = LST_day.get()
-    scale_factor = LST_day.attributes()['scale_factor']
-    temp_d = temp_d * scale_factor
+    result = []
+    for ds in dsname:
+        lst = hdf.select(ds)
+        temp = lst.get()
+        scale_factor = lst.attributes()['scale_factor']
+        temp = temp * scale_factor
+        # using merra2-based colocated index for DataFrame index and column, matching with merra2 dataset
+        temp = pd.DataFrame(data=temp, index=m_lat, columns=m_lon)
+        result.append(temp)
 
-    return temp_d
+    return result
 
 
 if __name__ == '__main__':
 
+    '''getting files from path'''
     all_merra_files, me_all = get_files('/Volumes/Samsung_T5/IoT_HeatIsland_Data/MERRA2/', '*.nc4')
-    all_merra_files = np.sort(all_merra_files)
-
     all_modis_files, mo_all = get_files('/Volumes/Samsung_T5/IoT_HeatIsland_Data/MODIS/', '*.hdf')
+    all_merra_files = np.sort(all_merra_files)
     all_mod_files = np.sort(all_modis_files)
 
+    '''getting coordinate data'''
+    mod_xy = pd.read_csv('/Volumes/Samsung_T5/IoT_HeatIsland_Data/MODIS/XYDim.csv')
+    mod_xy = modis_conv(mod_xy)
+
+    merra_data = Dataset(all_merra_files[0])
+    merra_lat = np.array(merra_data['lat'][:])
+    merra_lon = np.array(merra_data['lon'][:])
+
+    '''colocation'''
+    # using the index of merra2's coordinate to represent modis' coordinates
+    co_mod_lat = colocation(merra_lat, mod_xy[1])
+    co_mod_lon = colocation(merra_lon, mod_xy[0])
+
+    '''collecting data from files'''
     for i in range(min(me_all, mo_all)):
         merra_file = all_merra_files[i]
         mod_file = all_mod_files[i]
-        merra_SST = extract_merra_by_name(merra_file, 'TLML')
-        mod_SST = extract_modis_by_name(mod_file, 'LST_Day_1km')
+        merra_SST = extract_merra_by_name(merra_file, 'TLML', merra_lat, merra_lon)
+        mod_SST = extract_modis_by_name(mod_file, ['LST_Day_1km', 'LST_Night_1km'], co_mod_lat, co_mod_lon)
 
         print(merra_SST, mod_SST)
