@@ -119,12 +119,20 @@ def reshape_as_image(arrays):
 
 
 def plot_results(predicted_data, true_data):
+    '''plot result'''
     fig = plt.figure(facecolor='white')
     ax = fig.add_subplot(111)
     ax.plot(true_data, label='True Data')
     plt.plot(predicted_data, label='Prediction')
     plt.legend()
     plt.show()
+
+    '''result evaluation'''
+    # testScore = math.sqrt(mean_squared_error(true_data[:len(predicted_data)], predicted_data))
+    # print('Test Score: %.2f RMSE' % (testScore))
+    #
+    # lstm_score = r2_score(true_data[:len(predicted_data)], predicted_data)
+    # print("R^2 Score of model = ", lstm_score)
 
 
 def plot_results_multiple(test_x, test_y, prediction_len, model, model_type, filename):
