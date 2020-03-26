@@ -80,8 +80,11 @@ def extract_merra_by_name(filename, dsname, m_lat, m_lon):
     for t in range(ds.shape[0]):
         # using current (self) index for DataFrame index and column
         temp = pd.DataFrame(data=h4_data[dsname][:][t])
+        # selecting only data overlapping with MODIS to reduce data size: dataFrame.loc[<ROWS RANGE> , <COLUMNS RANGE>]
+        temp = temp.loc[min(m_lat):max(m_lat), min(m_lon):max(m_lon)]
         result.append(temp)
     h4_data.close()
+
     return result
 
 
@@ -103,6 +106,7 @@ def extract_modis_by_name(filename, dsname, m_lat, m_lon):
         temp = temp * scale_factor
         # using merra2-based colocated index for DataFrame index and column, matching with merra2 dataset
         temp = pd.DataFrame(data=temp, index=m_lat, columns=m_lon)
+        temp = temp.replace(0, np.nan)
         result.append(temp)
 
     return result
@@ -112,7 +116,7 @@ if __name__ == '__main__':
 
     '''getting files from path'''
     all_merra_files, me_all = get_files('/Volumes/Samsung_T5/IoT_HeatIsland_Data/MERRA2/', '*.nc4')
-    all_modis_files, mo_all = get_files('/Volumes/Samsung_T5/IoT_HeatIsland_Data/MODIS/', '*.hdf')
+    all_modis_files, mo_all = get_files('/Volumes/Samsung_T5/IoT_HeatIsland_Data/MODIS/MOD/', '*.hdf')
     all_merra_files = np.sort(all_merra_files)
     all_mod_files = np.sort(all_modis_files)
 
@@ -130,10 +134,13 @@ if __name__ == '__main__':
     co_mod_lon = colocation(merra_lon, mod_xy[0])
 
     '''collecting data from files'''
-    for i in range(min(me_all, mo_all)):
+    # for i in range(min(me_all, mo_all)):
+    for i in range(1):
+        # a date matching function needed as naming system is different
         merra_file = all_merra_files[i]
         mod_file = all_mod_files[i]
-        merra_SST = extract_merra_by_name(merra_file, 'TLML', merra_lat, merra_lon)
+        merra_SST = extract_merra_by_name(merra_file, 'TLML', co_mod_lat, co_mod_lon)
         mod_SST = extract_modis_by_name(mod_file, ['LST_Day_1km', 'LST_Night_1km'], co_mod_lat, co_mod_lon)
+        merra_SST = [i.sort_index(ascending=False) for i in merra_SST]
 
         print(merra_SST, mod_SST)
