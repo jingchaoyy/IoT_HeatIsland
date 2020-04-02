@@ -133,14 +133,28 @@ if __name__ == '__main__':
     co_mod_lat = colocation(merra_lat, mod_xy[1])
     co_mod_lon = colocation(merra_lon, mod_xy[0])
 
+    uni_lat = sorted(list(set(co_mod_lat)), reverse=True)
+    uni_lon = sorted(list(set(co_mod_lon)))
+
     '''collecting data from files'''
     # for i in range(min(me_all, mo_all)):
-    for i in range(1):
+    for f in range(min(len(all_merra_files), len(all_mod_files))):
         # a date matching function needed as naming system is different
-        merra_file = all_merra_files[i]
-        mod_file = all_mod_files[i]
+        merra_file = all_merra_files[f]
+        mod_file = all_mod_files[f]
         merra_SST = extract_merra_by_name(merra_file, 'TLML', co_mod_lat, co_mod_lon)
         mod_SST = extract_modis_by_name(mod_file, ['LST_Day_1km', 'LST_Night_1km'], co_mod_lat, co_mod_lon)
         merra_SST = [i.sort_index(ascending=False) for i in merra_SST]
 
-        print(merra_SST, mod_SST)
+        merra_SST_np = np.asarray([i.to_numpy() for i in merra_SST])
+        # looping through each coor and get 24h timeseries data
+        for lat in range(merra_SST_np.shape[1]):
+            for lon in range(merra_SST_np.shape[2]):
+                curr_lat = uni_lat[lat]
+                curr_lon = uni_lon[lon]
+                print(f'processing lat: {curr_lat} lon:{curr_lon}')
+
+                merra_24h = merra_SST_np[:, lat, lon]
+                # np.savetxt('', merra_24h, delimiter=",")
+                mod_within_10 = mod_SST[0].loc[curr_lat][curr_lon]
+                mod_within_22 = mod_SST[1].loc[curr_lat][curr_lon]
