@@ -9,6 +9,7 @@ from netCDF4 import Dataset
 import pandas as pd
 from pyhdf import SD
 import pyproj
+import datetime
 
 
 def modis_conv(in_proj):
@@ -112,11 +113,28 @@ def extract_modis_by_name(filename, dsname, m_lat, m_lon):
     return result
 
 
+def match_date(mod_f_name, merra_p):
+    """
+
+    :param mod_f_name:
+    :param merra_p:
+    :return:
+    """
+    year = mod_f_name[9:16][:4]
+    day = mod_f_name[9:16][4:]
+    date = datetime.datetime.strptime(f'{year} {day}', '%Y %j')
+    date = "{:4d}{:02d}{:02d}".format(date.year, date.month, date.day)
+
+    return merra_p + f'MERRA2_400.tavg1_2d_flx_Nx.{date}.nc4'
+
+
 if __name__ == '__main__':
+    merra_path = '/Volumes/Samsung_T5/IoT_HeatIsland_Data/MERRA2/'
+    mod_path = '/Volumes/Samsung_T5/IoT_HeatIsland_Data/MODIS/MOD/'
 
     '''getting files from path'''
-    all_merra_files, me_all = get_files('/Volumes/Samsung_T5/IoT_HeatIsland_Data/MERRA2/', '*.nc4')
-    all_modis_files, mo_all = get_files('/Volumes/Samsung_T5/IoT_HeatIsland_Data/MODIS/MOD/', '*.hdf')
+    all_merra_files, me_all = get_files(merra_path, '*.nc4')
+    all_modis_files, mo_all = get_files(mod_path, '*.hdf')
     all_merra_files = np.sort(all_merra_files)
     all_mod_files = np.sort(all_modis_files)
 
@@ -140,8 +158,9 @@ if __name__ == '__main__':
     # for i in range(min(me_all, mo_all)):
     for f in range(min(len(all_merra_files), len(all_mod_files))):
         # a date matching function needed as naming system is different
-        merra_file = all_merra_files[f]
         mod_file = all_mod_files[f]
+        merra_file = match_date(os.path.split(mod_file)[1], merra_path)
+
         merra_SST = extract_merra_by_name(merra_file, 'TLML', co_mod_lat, co_mod_lon)
         mod_SST = extract_modis_by_name(mod_file, ['LST_Day_1km', 'LST_Night_1km'], co_mod_lat, co_mod_lon)
         merra_SST = [i.sort_index(ascending=False) for i in merra_SST]
