@@ -10,6 +10,7 @@ import pandas as pd
 from pyhdf import SD
 import pyproj
 import datetime
+import os.path
 
 
 def modis_conv(in_proj):
@@ -80,7 +81,7 @@ def extract_merra_by_name(filename, dsname, m_lat, m_lon):
     result = []
     for t in range(ds.shape[0]):
         # using current (self) index for DataFrame index and column
-        temp = pd.DataFrame(data=h4_data[dsname][:][t])
+        temp = pd.DataFrame(data=ds[t])
         # selecting only data overlapping with MODIS to reduce data size: dataFrame.loc[<ROWS RANGE> , <COLUMNS RANGE>]
         temp = temp.loc[min(m_lat):max(m_lat), min(m_lon):max(m_lon)]
         result.append(temp)
@@ -125,7 +126,19 @@ def match_date(mod_f_name, merra_p):
     date = datetime.datetime.strptime(f'{year} {day}', '%Y %j')
     date = "{:4d}{:02d}{:02d}".format(date.year, date.month, date.day)
 
-    return merra_p + f'MERRA2_400.tavg1_2d_flx_Nx.{date}.nc4'
+    # data_next = datetime.datetime.strptime(f'{year} {int(day) + 1}', '%Y %j')
+    # data_next = "{:4d}{:02d}{:02d}".format(data_next.year, data_next.month, data_next.day)
+
+    return merra_p + f'MERRA2_400.tavg1_2d_flx_Nx.{date}.nc4', date
+
+
+def time_pattern_trans(base, trend):
+    """
+    transferring temporal pattern of a course grid to each associated finer grid
+    :param base:
+    :param trend:
+    :return:
+    """
 
 
 if __name__ == '__main__':
@@ -159,10 +172,10 @@ if __name__ == '__main__':
     for f in range(min(len(all_merra_files), len(all_mod_files))):
         # a date matching function needed as naming system is different
         mod_file = all_mod_files[f]
-        merra_file = match_date(os.path.split(mod_file)[1], merra_path)
+        merra_file, cur_date = match_date(os.path.split(mod_file)[1], merra_path)
 
         merra_SST = extract_merra_by_name(merra_file, 'TLML', co_mod_lat, co_mod_lon)
-        mod_SST = extract_modis_by_name(mod_file, ['LST_Day_1km', 'LST_Night_1km'], co_mod_lat, co_mod_lon)
+        # mod_SST = extract_modis_by_name(mod_file, ['LST_Day_1km', 'LST_Night_1km'], co_mod_lat, co_mod_lon)
         merra_SST = [i.sort_index(ascending=False) for i in merra_SST]
 
         merra_SST_np = np.asarray([i.to_numpy() for i in merra_SST])
@@ -171,9 +184,29 @@ if __name__ == '__main__':
             for lon in range(merra_SST_np.shape[2]):
                 curr_lat = uni_lat[lat]
                 curr_lon = uni_lon[lon]
+
+                real_lat = merra_lat[curr_lat]
+                real_lon = merra_lon[curr_lon]
                 print(f'processing lat: {curr_lat} lon:{curr_lon}')
 
                 merra_24h = merra_SST_np[:, lat, lon]
+                datetime = [pd.to_datetime(cur_date + str(i), format='%Y%m%d%H') for i in range(0, 24)]
+                df = pd.DataFrame(data=datetime, columns=['datetime'])
+                df['lat'] = real_lat
+                df['lon'] = real_lon
+                df['temp'] = merra_24h
+
+                path = f'/Volumes/Samsung_T5/IoT_HeatIsland_Data/MODIS/MOD_MERRA_Co_test/allMERRA/lat_{curr_lat}_lon_{curr_lon}.csv'
+                if os.path.isfile(path):
+                    df.to_csv(path, mode='a', header=False)
+                else:
+                    df.to_csv(path)
+
+                print(df)
+
                 # np.savetxt('', merra_24h, delimiter=",")
-                mod_within_10 = mod_SST[0].loc[curr_lat][curr_lon]
-                mod_within_22 = mod_SST[1].loc[curr_lat][curr_lon]
+                # mod_within_10 = mod_SST[0].loc[curr_lat][curr_lon]
+                # mod_within_22 = mod_SST[1].loc[curr_lat][curr_lon]
+                #
+                # vfunc = np.vectorize(time_pattern_trans)
+                # vfunc(mod_within_10, mod_within_22, merra_24h)
