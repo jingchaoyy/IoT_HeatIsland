@@ -190,8 +190,8 @@ if __name__ == '__main__':
                 print(f'processing lat: {curr_lat} lon:{curr_lon}')
 
                 merra_24h = merra_SST_np[:, lat, lon]
-                datetime = [pd.to_datetime(cur_date + str(i), format='%Y%m%d%H') for i in range(0, 24)]
-                df = pd.DataFrame(data=datetime, columns=['datetime'])
+                dt = [pd.to_datetime(cur_date + str(i), format='%Y%m%d%H') for i in range(0, 24)]
+                df = pd.DataFrame(data=dt, columns=['UTC'])
                 df['lat'] = real_lat
                 df['lon'] = real_lon
                 df['temp'] = merra_24h
@@ -201,8 +201,6 @@ if __name__ == '__main__':
                     df.to_csv(path, mode='a', header=False)
                 else:
                     df.to_csv(path)
-
-                print(df)
 
                 # np.savetxt('', merra_24h, delimiter=",")
                 # mod_within_10 = mod_SST[0].loc[curr_lat][curr_lon]
