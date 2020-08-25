@@ -1,6 +1,8 @@
 """
 Created on  2019-08-02
 @author: Jingchao Yang
+
+https://www.altumintelligence.com/articles/a/Time-Series-Prediction-Using-LSTM-Deep-Neural-Networks
 """
 import os
 import json
