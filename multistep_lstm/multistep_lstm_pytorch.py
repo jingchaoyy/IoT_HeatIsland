@@ -3,7 +3,7 @@ Created on  8/27/20
 @author: Jingchao Yang
 """
 from platform import python_version
-import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import time
@@ -17,10 +17,7 @@ import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 from datetime import datetime, date, timedelta
 
-aggr_df = pd.read_csv('/Users/jc/Documents/GitHub/Fresh-Air-LA/data/aggr_la_aq_preprocessed.csv', index_col=False)
-vars = list(set(aggr_df.columns[1:]) - set(['datetime']))
-sensors = pd.read_csv('/Users/jc/Documents/GitHub/Fresh-Air-LA/data/sensors_la_preprocessed.csv', index_col=False,
-                      dtype=str)
+device = torch.device('cuda')
 
 
 class LSTM(nn.Module):
@@ -36,8 +33,8 @@ class LSTM(nn.Module):
         self.linear = nn.Linear(hidden_size, output_size)
 
     def reset_hidden_state(self):
-        self.hidden = (torch.zeros(self.num_layers, self.batch_size, self.hidden_size),
-                       torch.zeros(self.num_layers, self.batch_size, self.hidden_size))
+        self.hidden = (torch.zeros(self.num_layers, self.batch_size, self.hidden_size).to(device),
+                       torch.zeros(self.num_layers, self.batch_size, self.hidden_size).to(device))
 
     def forward(self, x):
         # input shape: (batch, seq_len, input_size) (how many sequences, train window, how many inputs)
@@ -50,9 +47,56 @@ class LSTM(nn.Module):
         return y_pred  # (seq_len, output_size)
 
 
-def initial_model(hidden_size=30, num_layers=2, learning_rate=0.05):
+class Dataset:
+    def __init__(self, dataset, minmax, train_window, output_size, test_station=False):
+        '''
+        Normalize (bool, optional): optional normalization
+        '''
+        self.keys = dataset.columns
+        self.min = minmax[0]
+        self.max = minmax[1]
+        self.test_station = test_station
+        self.data = []
+
+        for key in self.keys:  # each station
+            single_column = dataset[key].values
+            dataX, dataY = [], []
+            single_column = (single_column - self.min) / (self.max - self.min)
+            dataX, dataY = create_dataset(single_column, train_window, output_size)
+
+            # np.array/tensor size will be [seq_len, time_window] rather than [seq_len, time_window, 1]
+            if test_station:  # For testing stations
+                self.data.append([dataX, dataY])
+            else:  # For training stations: split data into 70% training and 30% validation sets
+                trainX, valX = traintest(dataX, 0.7)
+                trainY, valY = traintest(dataY, 0.7)
+                self.data.append([trainX, trainY, valX, valY])
+
+    def __len__(self):
+        return len(self.data)
+
+    # access Dataset as list items, dictionary entries, array elements etc.
+    # support the indexing such that data[i] can be used to get ith sample
+    def __getitem__(self, idx):
+        # i is the key index, data[i] idx is the index of the matrix of the data[i]
+        # return self.data[idx]
+        if self.test_station:
+            # return x (seq_len, time_window) and y (seq_len, output_size)
+            testX = self.data[idx][0].unsqueeze(2).float()
+            testY = self.data[idx][1].unsqueeze(2).float()
+            return testX, testY
+        else:
+            # return trainX, trainY, valX, valY
+            trainX = self.data[idx][0].unsqueeze(2).float()
+            trainY = self.data[idx][1].unsqueeze(2).float()
+            valX = self.data[idx][2].unsqueeze(2).float()
+            valY = self.data[idx][3].unsqueeze(2).float()
+            return trainX, trainY, valX, valY
+
+
+def initial_model(input_size=1, hidden_size=30, num_layers=2, learning_rate=0.05, output_size=12):
     loss_func = torch.nn.MSELoss()  # mean-squared error for regression
-    model = LSTM(1, hidden_size, num_layers, output_size)
+    model = LSTM(input_size, hidden_size, num_layers, output_size).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     return loss_func, model, optimizer
 
@@ -104,56 +148,37 @@ def univariate_data(dataset, start_index, end_index, history_size, target_size, 
     labels = np.array(labels)
 
     if tensor:
-        data = torch.from_numpy(data).float()
-        labels = torch.from_numpy(labels).float()
+        data = torch.from_numpy(data).float().to(device)
+        labels = torch.from_numpy(labels).float().to(device)
 
     return data, labels
 
 
-# extract only one variable
-variable = '060371103_PM2.5'
-uni_data = aggr_df[variable].values.reshape(-1, 1)
-uni_data[uni_data < 0] =0
-print(uni_data.shape)
+def traintest(dataset, train_slice, return_size=False):
+    # split into train and test sets
+    train_size = int(len(dataset) * train_slice)
+    train, test = dataset[:train_size], dataset[train_size:]
 
-# find max and min values for normalization
-norm_min = min(uni_data)
-norm_max = max(uni_data)
-print(norm_min, norm_max)
+    if return_size:  # return train_size to retrieve x axis
+        return train_size, train, test
+    else:
+        return train, test
 
-# normalize the data
-uni_data = (uni_data - norm_min) / (norm_max - norm_min)
-print(uni_data.min(), uni_data.max())
 
-# split into train and test
-TRAIN_SPLIT = int(aggr_df.shape[0] * 0.7)
+def create_dataset(dataset, train_window, output_size, tensor=True):
+    dataX, dataY = [], []
+    L = len(dataset)
+    for i in range(L - train_window - output_size + 1):
+        _x = dataset[i:i + train_window]
+        _y = dataset[i + train_window: (i + train_window + output_size)]
+        dataX.append(_x)
+        dataY.append(_y)
 
-past_history = 72
-output_size = 12
+    dataX = np.array(dataX)
+    dataY = np.array(dataY)
 
-x_train, y_train = univariate_data(uni_data, 0, TRAIN_SPLIT, past_history, output_size)
-x_test, y_test = univariate_data(uni_data, TRAIN_SPLIT, None, past_history, output_size)
+    if tensor:
+        dataX = torch.from_numpy(dataX).float()
+        dataY = torch.from_numpy(dataY).float()
 
-print(x_train.shape, y_train.shape)
-print(x_test.shape, y_test.shape)
-
-num_epochs = 300
-epoch_interval = 20
-loss_func, model, optimizer = initial_model()
-train_loss, test_loss = [], []
-
-train_loader = DataLoader(TensorDataset(x_train, y_train), shuffle=True, batch_size=1000)
-test_loader = DataLoader(TensorDataset(x_test, y_test), shuffle=True, batch_size=400)
-
-for idx, data in enumerate(train_loader):
-    print(idx, data[0].shape, data[1].shape)
-
-for epoch in range(num_epochs):
-    loss1 = train_LSTM(train_loader, model, loss_func, optimizer, epoch)  # calculate train_loss
-    loss2 = test_LSTM(test_loader, model, loss_func, optimizer, epoch)  # calculate test_loss
-
-    train_loss.extend(loss1)
-    test_loss.extend(loss2)
-
-    if epoch % epoch_interval == 0:
-        print("Epoch: %d, train_loss: %1.5f, test_loss: %1.5f" % (epoch, sum(loss1), sum(loss2)))
+    return dataX, dataY
