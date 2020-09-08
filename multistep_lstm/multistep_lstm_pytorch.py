@@ -178,7 +178,7 @@ def create_dataset(dataset, train_window, output_size, tensor=True):
     dataY = np.array(dataY)
 
     if tensor:
-        dataX = torch.from_numpy(dataX).float()
-        dataY = torch.from_numpy(dataY).float()
+        dataX = torch.from_numpy(dataX).float().to(device)
+        dataY = torch.from_numpy(dataY).float().to(device)
 
     return dataX, dataY
