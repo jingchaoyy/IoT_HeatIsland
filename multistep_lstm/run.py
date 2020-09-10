@@ -22,28 +22,60 @@ from datetime import datetime, date, timedelta
 # from multistep_lstm import multistep_lstm_keras
 from multistep_lstm import multistep_lstm_pytorch
 import random
+from sklearn import preprocessing
+
+
+def min_max_scaler(df):
+    """
+
+    :param df:
+    :return:
+    """
+    min_max_scaler = preprocessing.MinMaxScaler()
+    df_np = df.values
+    df_np_scaled = min_max_scaler.fit_transform(df_np)
+    df_scaled = pd.DataFrame(df_np_scaled)
+
+    df_scaled.index = df.index
+    df_scaled.columns = df.columns
+
+    return df_scaled
+
 
 
 '''pytorch'''
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+multi_variate_mode = True
 '''data'''
 # aggr_df = pd.read_csv(r'D:\1_GitHub\Fresh-Air-LA\data\aggr_la_aq_preprocessed.csv', index_col=False)
 # vars = list(set(aggr_df.columns[1:]) - set(['datetime']))
 
-iot_df = pd.read_csv(r'E:\IoT_HeatIsland_Data\data\LA\dataHarvest\merged\nodes_missing_5percent.csv',
-                     usecols=['Geohash'])
-all_sensors = iot_df.values.reshape(-1)
+geohash_df = pd.read_csv(r'E:\IoT_HeatIsland_Data\data\LA\dataHarvest\merged\nodes_missing_5percent.csv',
+                         usecols=['Geohash'])
+iot_sensors = geohash_df.values.reshape(-1)
+iot_df = pd.read_csv(r'E:\IoT_HeatIsland_Data\data\LA\dataHarvest\merged\tempMatrix_LA_2019_20.csv',
+                     usecols=['datetime'] + iot_sensors.tolist(), index_col=['datetime'])
 
-aggr_df = pd.read_csv(r'E:\IoT_HeatIsland_Data\data\LA\dataHarvest\merged\tempMatrix_LA_2019_20.csv',
-                      usecols=all_sensors)
-aggr_df = aggr_df.dropna()
+if multi_variate_mode:
+    ext_data_path = r'E:\IoT_HeatIsland_Data\data\LA\weather_underground\WU_preprocessed_LA\processed\byAttributes'
+    humidity_df = pd.read_csv(ext_data_path + r'\humidity.csv', index_col=['datetime'])
+    pressure_df = pd.read_csv(ext_data_path + r'\pressure.csv', index_col=['datetime'])
+    windSpeed_df = pd.read_csv(ext_data_path + r'\windSpeed.csv', index_col=['datetime'])
+    ext_data = [humidity_df, pressure_df, windSpeed_df]
+    ext_data_scaled = []
+    for ext in ext_data:
+        ext_data_scaled.append(min_max_scaler(ext))
+    iot_wu_match_df = pd.read_csv(r'E:\IoT_HeatIsland_Data\data\LA\dataHarvest\merged\iot_wu_colocate.csv', index_col=0)
+
+iot_df = iot_df.dropna()
 
 '''all stations'''
 # selected_vars = [var for var in vars if var.split('_')[1] in ['PM2.5', 'OZONE', 'NO2']]
 # dataset = aggr_df[selected_vars]
-
 # selected_vars = random.choices(all_sensors, k=int(len(all_sensors)*0.7))
-selected_vars = all_sensors
-dataset = aggr_df
+
+selected_vars = iot_sensors
+dataset = iot_df
 
 print('selected sensors', dataset.columns)
 
@@ -64,8 +96,8 @@ print('normalized dataset min, max', dataset.min(), dataset.max())
 train_stations = selected_vars[:int(len(selected_vars) * 0.7)]
 test_stations = selected_vars[int(len(selected_vars) * 0.7):]
 
-train_data_raw = aggr_df[train_stations]
-test_data_raw = aggr_df[test_stations]
+train_data_raw = iot_df[train_stations]
+test_data_raw = iot_df[test_stations]
 
 print(train_data_raw.shape)
 print(test_data_raw.shape)
@@ -74,8 +106,29 @@ print(train_data_raw.columns)
 train_window = 72
 output_size = 12
 
-train_data = multistep_lstm_pytorch.Dataset(train_data_raw, (norm_min, norm_max), train_window, output_size)
-test_data = multistep_lstm_pytorch.Dataset(test_data_raw, (norm_min, norm_max), train_window, output_size, test_station=True)
+if not multi_variate_mode:
+    train_data = multistep_lstm_pytorch.Dataset(train_data_raw,
+                                                (norm_min, norm_max),
+                                                train_window, output_size)
+    test_data = multistep_lstm_pytorch.Dataset(test_data_raw,
+                                               (norm_min, norm_max),
+                                               train_window,
+                                               output_size,
+                                               test_station=True)
+else:
+    train_data = multistep_lstm_pytorch.Dataset_multivariate(train_data_raw,
+                                                             (norm_min, norm_max),
+                                                             train_window,
+                                                             output_size,
+                                                             ext_data_scaled,
+                                                             iot_wu_match_df)
+    test_data = multistep_lstm_pytorch.Dataset_multivariate(test_data_raw,
+                                                            (norm_min, norm_max),
+                                                            train_window,
+                                                            output_size,
+                                                            ext_data_scaled,
+                                                            iot_wu_match_df,
+                                                            test_station=True)
 
 print('Number of stations in training data: ', len(train_data))
 print('Number of stations in testing data: ', len(test_data))
@@ -87,7 +140,9 @@ print("Testing input and output for each station: %s, %s" % (test_data[0][0].sha
 # initialize the model
 num_epochs = 6
 epoch_interval = 1
-loss_func, model, optimizer = multistep_lstm_pytorch.initial_model(output_size=output_size, learning_rate=0.001)
+loss_func, model, optimizer = multistep_lstm_pytorch.initial_model(input_size=train_data[0][0].shape[-1],
+                                                                   output_size=output_size,
+                                                                   learning_rate=0.001)
 train_loss, test_loss = [], []
 
 start = time.time()
@@ -96,11 +151,14 @@ for epoch in range(num_epochs):
     running_loss_train = []
     running_loss_val = []
     for idx in range(len(train_data)):
-        train_loader = DataLoader(TensorDataset(train_data[idx][0], train_data[idx][1]), shuffle=True, batch_size=1000,
-                                  drop_last=True)
-        val_loader = DataLoader(TensorDataset(train_data[idx][2], train_data[idx][3]), shuffle=True, batch_size=400,
-                                drop_last=True)
-        loss1 = multistep_lstm_pytorch.train_LSTM(train_loader, model, loss_func, optimizer, epoch)  # calculate train_loss
+        train_loader = DataLoader(TensorDataset(train_data[idx][0][:, :, 0, :].to(device),
+                                                train_data[idx][1][:, :, 0, :].to(device)),
+                                  shuffle=True, batch_size=1000, drop_last=True)
+        val_loader = DataLoader(TensorDataset(train_data[idx][2][:, :, 0, :].to(device),
+                                              train_data[idx][3][:, :, 0, :].to(device)),
+                                shuffle=True, batch_size=400, drop_last=True)
+        loss1 = multistep_lstm_pytorch.train_LSTM(train_loader, model, loss_func, optimizer,
+                                                  epoch)  # calculate train_loss
         loss2 = multistep_lstm_pytorch.test_LSTM(val_loader, model, loss_func, optimizer, epoch)  # calculate test_loss
         running_loss_train.append(sum(loss1))
         running_loss_val.append(sum(loss2))
@@ -117,6 +175,10 @@ print(end - start)
 plt.plot(train_loss)
 plt.plot(test_loss)
 plt.show()
+
+# save trained model
+torch.save(model.state_dict(), r'D:\1_GitHub\IoT_HeatIsland\multistep_lstm\saved_models'
+                               f'\\multivariate_epoch{num_epochs}.pt')
 
 # Predict the training dataset of training stations and testing dataset of testing stations
 train_pred_orig_dict = dict()
@@ -176,8 +238,7 @@ print('High loss stations (train):', anomaly_iot_train)
 testScores_stations_df = pd.DataFrame.from_dict(testScores_stations, orient='index', columns=['value'])
 sigma_3 = (3 * testScores_stations_df.std() + testScores_stations_df.mean()).values[0]
 anomaly_iot_test = testScores_stations_df.loc[testScores_stations_df['value'] >= sigma_3]
-print('High loss stations (test):', anomaly_iot_train)
-
+print('High loss stations (test):', anomaly_iot_test)
 
 '''single station'''
 # # extract only one variable

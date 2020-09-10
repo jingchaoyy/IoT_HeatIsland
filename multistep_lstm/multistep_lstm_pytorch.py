@@ -16,9 +16,10 @@ import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 from datetime import datetime, date, timedelta
+from functools import reduce
 
-device = torch.device('cuda')
-
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cpu")
 
 class LSTM(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, output_size):
@@ -63,6 +64,69 @@ class Dataset:
             dataX, dataY = [], []
             single_column = (single_column - self.min) / (self.max - self.min)
             dataX, dataY = create_dataset(single_column, train_window, output_size)
+
+            # np.array/tensor size will be [seq_len, time_window] rather than [seq_len, time_window, 1]
+            if test_station:  # For testing stations
+                self.data.append([dataX, dataY])
+            else:  # For training stations: split data into 70% training and 30% validation sets
+                trainX, valX = traintest(dataX, 0.7)
+                trainY, valY = traintest(dataY, 0.7)
+                self.data.append([trainX, trainY, valX, valY])
+
+    def __len__(self):
+        return len(self.data)
+
+    # access Dataset as list items, dictionary entries, array elements etc.
+    # support the indexing such that data[i] can be used to get ith sample
+    def __getitem__(self, idx):
+        # i is the key index, data[i] idx is the index of the matrix of the data[i]
+        # return self.data[idx]
+        if self.test_station:
+            # return x (seq_len, time_window) and y (seq_len, output_size)
+            testX = self.data[idx][0].unsqueeze(2).float()
+            testY = self.data[idx][1].unsqueeze(2).float()
+            return testX, testY
+        else:
+            # return trainX, trainY, valX, valY
+            trainX = self.data[idx][0].unsqueeze(2).float()
+            trainY = self.data[idx][1].unsqueeze(2).float()
+            valX = self.data[idx][2].unsqueeze(2).float()
+            valY = self.data[idx][3].unsqueeze(2).float()
+            return trainX, trainY, valX, valY
+
+
+class Dataset_multivariate:
+    def __init__(self, dataset, minmax, train_window, output_size, ext_data, iot_wu_match_df, test_station=False):
+        '''
+        Normalize (bool, optional): optional normalization
+        '''
+        self.keys = dataset.columns
+        self.min = minmax[0]
+        self.max = minmax[1]
+        self.test_station = test_station
+        self.data = []
+
+        for key in self.keys:  # each station
+            # single_column = dataset[key].values
+            # single_column = (single_column - self.min) / (self.max - self.min)
+
+            merged = dataset[[key]]
+            wu_match = iot_wu_match_df.loc[(iot_wu_match_df['Geohash'] == key)]['WU_ind'].values[0]
+            ext_match = []
+            ext_name = ['humidity', 'pressure', 'windSpeed']
+
+            for ext in range(len(ext_data)):
+                match = ext_data[ext][[str(wu_match)]]
+                match.columns = [ext_name[ext]]
+                ext_match.append(match)
+            ext_match = reduce(lambda left, right: pd.merge(left, right, left_index=True, right_index=True), ext_match)
+            ext_match.index = pd.to_datetime(ext_match.index, format='%m/%d/%Y %H:%M').strftime('%Y-%m-%d %H:%M:%S')
+            merged = merged.join(ext_match)
+            merged = merged.sort_index().values
+            merged[:, 0] = (merged[:, 0] - self.min) / (self.max - self.min)
+
+            dataX, dataY = [], []
+            dataX, dataY = create_dataset(merged, train_window, output_size, multivar=True)
 
             # np.array/tensor size will be [seq_len, time_window] rather than [seq_len, time_window, 1]
             if test_station:  # For testing stations
@@ -165,20 +229,26 @@ def traintest(dataset, train_slice, return_size=False):
         return train, test
 
 
-def create_dataset(dataset, train_window, output_size, tensor=True):
+def create_dataset(dataset, train_window, output_size, tensor=True, multivar=False):
     dataX, dataY = [], []
     L = len(dataset)
     for i in range(L - train_window - output_size + 1):
         _x = dataset[i:i + train_window]
         _y = dataset[i + train_window: (i + train_window + output_size)]
         dataX.append(_x)
-        dataY.append(_y)
+        if multivar:
+            # only using target attribute for y, expand dimension
+            dataY.append(np.expand_dims(_y[:, 0], axis=1))
+        else:
+            dataY.append(_y)
 
     dataX = np.array(dataX)
     dataY = np.array(dataY)
 
     if tensor:
-        dataX = torch.from_numpy(dataX).float().to(device)
-        dataY = torch.from_numpy(dataY).float().to(device)
+        # dataX = torch.from_numpy(dataX).float().to(device)
+        # dataY = torch.from_numpy(dataY).float().to(device)
+        dataX = torch.from_numpy(dataX).float()
+        dataY = torch.from_numpy(dataY).float()
 
     return dataX, dataY
