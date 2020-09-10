@@ -185,10 +185,10 @@ train_pred_orig_dict = dict()
 for idx in range(len(train_data)):
     station = train_data.keys[idx]
     with torch.no_grad():
-        train_pred = model(train_data[idx][0])
+        train_pred = model(train_data[idx][0][:, :, 0, :].to(device))
         train_pred_trans = train_pred * (norm_max - norm_min) + norm_min
 
-        train_orig = train_data[idx][1].reshape(train_pred.shape)
+        train_orig = train_data[idx][1][:, :, 0, :].reshape(train_pred.shape).to(device)
         train_orig_trans = train_orig * (norm_max - norm_min) + norm_min
 
         train_pred_orig_dict[station] = (train_pred_trans, train_orig_trans)
@@ -197,10 +197,10 @@ test_pred_orig_dict = dict()
 for idx in range(len(test_data)):
     station = test_data.keys[idx]
     with torch.no_grad():
-        test_pred = model(test_data[idx][0])
+        test_pred = model(test_data[idx][0][:, :, 0, :].to(device))
         test_pred_trans = test_pred * (norm_max - norm_min) + norm_min
 
-        test_orig = test_data[idx][1].reshape(test_pred.shape)
+        test_orig = test_data[idx][1][:, :, 0, :].reshape(test_pred.shape).to(device)
         test_orig_trans = test_orig * (norm_max - norm_min) + norm_min
 
         test_pred_orig_dict[station] = (test_pred_trans, test_orig_trans)
