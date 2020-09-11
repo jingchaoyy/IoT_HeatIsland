@@ -2,26 +2,15 @@
 Created on  8/27/20
 @author: Jingchao Yang
 """
-import pandas as pd
 import matplotlib.pyplot as plt
-import time
-from platform import python_version
-import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import time
 import math
-import sklearn
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error
 from statistics import mean
 import torch
-import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
-from datetime import datetime, date, timedelta
-# from multistep_lstm import multistep_lstm_keras
 from multistep_lstm import multistep_lstm_pytorch
-import random
 from sklearn import preprocessing
 
 
@@ -56,13 +45,13 @@ iot_sensors = geohash_df.values.reshape(-1)
 iot_df = pd.read_csv(r'E:\IoT_HeatIsland_Data\data\LA\dataHarvest\merged\tempMatrix_LA_2019_20.csv',
                      usecols=['datetime'] + iot_sensors.tolist(), index_col=['datetime'])
 
+ext_data_scaled = []
 if multi_variate_mode:
     ext_data_path = r'E:\IoT_HeatIsland_Data\data\LA\weather_underground\WU_preprocessed_LA\processed\byAttributes'
     humidity_df = pd.read_csv(ext_data_path + r'\humidity.csv', index_col=['datetime'])
     pressure_df = pd.read_csv(ext_data_path + r'\pressure.csv', index_col=['datetime'])
     windSpeed_df = pd.read_csv(ext_data_path + r'\windSpeed.csv', index_col=['datetime'])
     ext_data = [humidity_df, pressure_df, windSpeed_df]
-    ext_data_scaled = []
     for ext in ext_data:
         ext_data_scaled.append(min_max_scaler(ext))
     iot_wu_match_df = pd.read_csv(r'E:\IoT_HeatIsland_Data\data\LA\dataHarvest\merged\iot_wu_colocate.csv', index_col=0)
@@ -103,8 +92,8 @@ print(train_data_raw.shape)
 print(test_data_raw.shape)
 print(train_data_raw.columns)
 
-train_window = 72
-output_size = 12
+train_window = 168
+output_size = 168
 
 if not multi_variate_mode:
     train_data = multistep_lstm_pytorch.Dataset(train_data_raw,
@@ -138,9 +127,12 @@ print("Validation input and output for each station: %s, %s" % (train_data[0][2]
 print("Testing input and output for each station: %s, %s" % (test_data[0][0].shape, test_data[0][1].shape))
 
 # initialize the model
-num_epochs = 6
+num_epochs = 3
 epoch_interval = 1
+# https://towardsdatascience.com/choosing-the-right-hyperparameters-for-a-simple-lstm-using-keras-f8e9ed76f046
+hidden_size = int((2/3)*(train_window*len(ext_data_scaled)+1))
 loss_func, model, optimizer = multistep_lstm_pytorch.initial_model(input_size=train_data[0][0].shape[-1],
+                                                                   hidden_size=hidden_size,
                                                                    output_size=output_size,
                                                                    learning_rate=0.001)
 train_loss, test_loss = [], []
@@ -153,10 +145,10 @@ for epoch in range(num_epochs):
     for idx in range(len(train_data)):
         train_loader = DataLoader(TensorDataset(train_data[idx][0][:, :, 0, :].to(device),
                                                 train_data[idx][1][:, :, 0, :].to(device)),
-                                  shuffle=True, batch_size=1000, drop_last=True)
+                                  shuffle=True, batch_size=1500, drop_last=True)
         val_loader = DataLoader(TensorDataset(train_data[idx][2][:, :, 0, :].to(device),
                                               train_data[idx][3][:, :, 0, :].to(device)),
-                                shuffle=True, batch_size=400, drop_last=True)
+                                shuffle=True, batch_size=1000, drop_last=True)
         loss1 = multistep_lstm_pytorch.train_LSTM(train_loader, model, loss_func, optimizer,
                                                   epoch)  # calculate train_loss
         loss2 = multistep_lstm_pytorch.test_LSTM(val_loader, model, loss_func, optimizer, epoch)  # calculate test_loss
@@ -177,8 +169,9 @@ plt.plot(test_loss)
 plt.show()
 
 # save trained model
+modelName = int(time.time())
 torch.save(model.state_dict(), r'D:\1_GitHub\IoT_HeatIsland\multistep_lstm\saved_models'
-                               f'\\multivariate_epoch{num_epochs}.pt')
+                               f'\\ep{num_epochs}_neu{hidden_size}_pred{output_size}_{modelName}.pt')
 
 # Predict the training dataset of training stations and testing dataset of testing stations
 train_pred_orig_dict = dict()
