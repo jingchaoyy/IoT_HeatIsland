@@ -12,6 +12,22 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader
 from multistep_lstm import multistep_lstm_pytorch
 from sklearn import preprocessing
+import numpy as np
+from numpy import isnan
+
+
+# fill missing values with a value at the same time one day ago
+def fill_missing(values):
+    """
+
+    :param values:
+    :return:
+    """
+    one_day = 24
+    for row in range(values.shape[0]):
+        for col in range(values.shape[1]):
+            if isnan(values[row, col]):
+                values[row, col] = values[row - one_day, col]
 
 
 def min_max_scaler(df):
@@ -31,7 +47,6 @@ def min_max_scaler(df):
     return df_scaled
 
 
-
 '''pytorch'''
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 multi_variate_mode = True
@@ -39,24 +54,25 @@ multi_variate_mode = True
 # aggr_df = pd.read_csv(r'D:\1_GitHub\Fresh-Air-LA\data\aggr_la_aq_preprocessed.csv', index_col=False)
 # vars = list(set(aggr_df.columns[1:]) - set(['datetime']))
 
-geohash_df = pd.read_csv(r'E:\IoT_HeatIsland_Data\data\LA\dataHarvest\merged\nodes_missing_5percent.csv',
+geohash_df = pd.read_csv(r'D:\IoT_HeatIsland\exp_data_bak\merged\nodes_missing_5percent.csv',
                          usecols=['Geohash'])
 iot_sensors = geohash_df.values.reshape(-1)
-iot_df = pd.read_csv(r'E:\IoT_HeatIsland_Data\data\LA\dataHarvest\merged\tempMatrix_LA_2019_20.csv',
+iot_df = pd.read_csv(r'D:\IoT_HeatIsland\exp_data_bak\merged\tempMatrix_LA_2019_20.csv',
                      usecols=['datetime'] + iot_sensors.tolist(), index_col=['datetime'])
 
+ext_name = ['humidity', 'windSpeed']
+# ext_name = ['humidity', 'windSpeed', 'dewPoint']
 ext_data_scaled = []
 if multi_variate_mode:
-    ext_data_path = r'E:\IoT_HeatIsland_Data\data\LA\weather_underground\WU_preprocessed_LA\processed\byAttributes'
-    humidity_df = pd.read_csv(ext_data_path + r'\humidity.csv', index_col=['datetime'])
-    pressure_df = pd.read_csv(ext_data_path + r'\pressure.csv', index_col=['datetime'])
-    windSpeed_df = pd.read_csv(ext_data_path + r'\windSpeed.csv', index_col=['datetime'])
-    ext_data = [humidity_df, pressure_df, windSpeed_df]
-    for ext in ext_data:
-        ext_data_scaled.append(min_max_scaler(ext))
-    iot_wu_match_df = pd.read_csv(r'E:\IoT_HeatIsland_Data\data\LA\dataHarvest\merged\iot_wu_colocate.csv', index_col=0)
+    ext_data_path = r'D:\IoT_HeatIsland\exp_data_bak\WU_preprocessed_LA\processed\byAttributes'
+    for ext in ext_name:
+        ext_df = pd.read_csv(ext_data_path + f'\{ext}.csv', index_col=['datetime'])
+        fill_missing(ext_df.values)
+        ext_data_scaled.append(min_max_scaler(ext_df))
+    iot_wu_match_df = pd.read_csv(r'D:\IoT_HeatIsland\exp_data_bak\merged\iot_wu_colocate.csv', index_col=0)
 
-iot_df = iot_df.dropna()
+fill_missing(iot_df.values)
+# iot_df = iot_df.dropna()
 
 '''all stations'''
 # selected_vars = [var for var in vars if var.split('_')[1] in ['PM2.5', 'OZONE', 'NO2']]
@@ -82,8 +98,8 @@ dataset = (dataset - norm_min) / (norm_max - norm_min)
 print('normalized dataset min, max', dataset.min(), dataset.max())
 
 # separate train and test stations
-train_stations = selected_vars[:int(len(selected_vars) * 0.7)]
-test_stations = selected_vars[int(len(selected_vars) * 0.7):]
+train_stations = set(np.random.choice(selected_vars, int(len(selected_vars) * 0.7), replace=False))
+test_stations = set(selected_vars) - train_stations
 
 train_data_raw = iot_df[train_stations]
 test_data_raw = iot_df[test_stations]
@@ -92,8 +108,8 @@ print(train_data_raw.shape)
 print(test_data_raw.shape)
 print(train_data_raw.columns)
 
-train_window = 168
-output_size = 168
+train_window = 72
+output_size = 48
 
 if not multi_variate_mode:
     train_data = multistep_lstm_pytorch.Dataset(train_data_raw,
@@ -110,12 +126,14 @@ else:
                                                              train_window,
                                                              output_size,
                                                              ext_data_scaled,
+                                                             ext_name,
                                                              iot_wu_match_df)
     test_data = multistep_lstm_pytorch.Dataset_multivariate(test_data_raw,
                                                             (norm_min, norm_max),
                                                             train_window,
                                                             output_size,
                                                             ext_data_scaled,
+                                                            ext_name,
                                                             iot_wu_match_df,
                                                             test_station=True)
 
@@ -127,28 +145,34 @@ print("Validation input and output for each station: %s, %s" % (train_data[0][2]
 print("Testing input and output for each station: %s, %s" % (test_data[0][0].shape, test_data[0][1].shape))
 
 # initialize the model
-num_epochs = 3
+num_epochs = 15
 epoch_interval = 1
 # https://towardsdatascience.com/choosing-the-right-hyperparameters-for-a-simple-lstm-using-keras-f8e9ed76f046
-hidden_size = int((2/3)*(train_window*len(ext_data_scaled)+1))
+# hidden_size = int((2/3)*(train_window*len(ext_data_scaled)+1))
+hidden_size = 6
 loss_func, model, optimizer = multistep_lstm_pytorch.initial_model(input_size=train_data[0][0].shape[-1],
                                                                    hidden_size=hidden_size,
                                                                    output_size=output_size,
                                                                    learning_rate=0.001)
-train_loss, test_loss = [], []
+train_loss, test_loss, mean_loss_train, mean_test_loss = [], [], [], []
+min_val_loss, mean_min_val_loss = np.Inf, np.Inf
+n_epochs_stop = 3
+epochs_no_improve = 0
+early_stop = False
 
 start = time.time()
 # train the model
 for epoch in range(num_epochs):
     running_loss_train = []
     running_loss_val = []
+    loss2 = 0
     for idx in range(len(train_data)):
         train_loader = DataLoader(TensorDataset(train_data[idx][0][:, :, 0, :].to(device),
                                                 train_data[idx][1][:, :, 0, :].to(device)),
-                                  shuffle=True, batch_size=1500, drop_last=True)
+                                  shuffle=True, batch_size=1000, drop_last=True)
         val_loader = DataLoader(TensorDataset(train_data[idx][2][:, :, 0, :].to(device),
                                               train_data[idx][3][:, :, 0, :].to(device)),
-                                shuffle=True, batch_size=1000, drop_last=True)
+                                shuffle=True, batch_size=400, drop_last=True)
         loss1 = multistep_lstm_pytorch.train_LSTM(train_loader, model, loss_func, optimizer,
                                                   epoch)  # calculate train_loss
         loss2 = multistep_lstm_pytorch.test_LSTM(val_loader, model, loss_func, optimizer, epoch)  # calculate test_loss
@@ -157,21 +181,54 @@ for epoch in range(num_epochs):
         train_loss.extend(loss1)
         test_loss.extend(loss2)
 
+        if mean(loss2) < min_val_loss:
+            # Save the model
+            # torch.save(model)
+            epochs_no_improve = 0
+            min_val_loss = mean(loss2)
+
+        else:
+            epochs_no_improve += 1
+
+        if epoch > 5 and epochs_no_improve == n_epochs_stop:
+            print('Early stopping!')
+            early_stop = True
+            break
+        else:
+            continue
+
+    mean_loss_train.append(mean(running_loss_train))
+    mean_test_loss.append(mean(running_loss_val))
     if epoch % epoch_interval == 0:
         print(
             "Epoch: %d, train_loss: %1.5f, val_loss: %1.5f" % (epoch, mean(running_loss_train), mean(running_loss_val)))
+        if mean(running_loss_val) < mean_min_val_loss:
+            mean_min_val_loss = mean(running_loss_val)
+        else:
+            print('Early stopping!')
+            early_stop = True
+    if early_stop:
+        print("Stopped")
+        break
 
 end = time.time()
 print(end - start)
 
+print(model)
+
 plt.plot(train_loss)
 plt.plot(test_loss)
+plt.show()
+
+plt.plot(mean_loss_train)
+plt.plot(mean_test_loss)
 plt.show()
 
 # save trained model
 modelName = int(time.time())
 torch.save(model.state_dict(), r'D:\1_GitHub\IoT_HeatIsland\multistep_lstm\saved_models'
                                f'\\ep{num_epochs}_neu{hidden_size}_pred{output_size}_{modelName}.pt')
+print('model saved')
 
 # Predict the training dataset of training stations and testing dataset of testing stations
 train_pred_orig_dict = dict()
