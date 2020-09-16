@@ -30,7 +30,7 @@ class LSTM(nn.Module):
         self.num_layers = num_layers
         self.output_size = output_size
 
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, dropout=0.2)
         self.linear = nn.Linear(hidden_size, output_size)
 
     def reset_hidden_state(self):
@@ -96,7 +96,7 @@ class Dataset:
 
 
 class Dataset_multivariate:
-    def __init__(self, dataset, minmax, train_window, output_size, ext_data, iot_wu_match_df, test_station=False):
+    def __init__(self, dataset, minmax, train_window, output_size, ext_data, ext_name, iot_wu_match_df, test_station=False):
         '''
         Normalize (bool, optional): optional normalization
         '''
@@ -113,7 +113,7 @@ class Dataset_multivariate:
             merged = dataset[[key]]
             wu_match = iot_wu_match_df.loc[(iot_wu_match_df['Geohash'] == key)]['WU_ind'].values[0]
             ext_match = []
-            ext_name = ['humidity', 'pressure', 'windSpeed']
+            # ext_name = ['humidity', 'pressure', 'windSpeed']
 
             for ext in range(len(ext_data)):
                 match = ext_data[ext][[str(wu_match)]]
