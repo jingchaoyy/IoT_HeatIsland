@@ -147,7 +147,7 @@ def plot_results_multiple(test_x, test_y, prediction_len, model, model_type, fil
         for j in range(prediction_len):
             if j == 0:
                 if model_type == 'xgboost':
-                    current_x_xgb = xgb.DMatrix([current_x])
+                    current_x_xgb = xgb.DMatrix(np.array([current_x]))
                     pred_multiple.append(model.predict(current_x_xgb))
                 if model_type == 'gbdt':
                     pred_multiple.append(model.predict([current_x]))
@@ -159,7 +159,7 @@ def plot_results_multiple(test_x, test_y, prediction_len, model, model_type, fil
                 current_x = np.delete(current_x, 0)
                 current_x = np.append(current_x, pred_multiple[-1])
                 if model_type == 'xgboost':
-                    current_x_xgb = xgb.DMatrix([current_x])
+                    current_x_xgb = xgb.DMatrix(np.array([current_x]))
                     pred_multiple.append(model.predict(current_x_xgb))
                 if model_type == 'gbdt':
                     pred_multiple.append(model.predict([current_x]))
