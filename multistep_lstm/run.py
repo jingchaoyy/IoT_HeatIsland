@@ -14,6 +14,8 @@ from multistep_lstm import multistep_lstm_pytorch
 from sklearn import preprocessing
 import numpy as np
 from numpy import isnan
+import seaborn as sns
+from sklearn.metrics import r2_score
 
 
 # fill missing values with a value at the same time one day ago
@@ -108,8 +110,9 @@ print(train_data_raw.shape)
 print(test_data_raw.shape)
 print(train_data_raw.columns)
 
-train_window = 72
-output_size = 48
+train_window = 216
+output_size = 72
+
 
 if not multi_variate_mode:
     train_data = multistep_lstm_pytorch.Dataset(train_data_raw,
@@ -258,9 +261,21 @@ for idx in range(len(test_data)):
 print(list(test_pred_orig_dict.keys())[0])
 
 # plot baseline and predictions
-plt.plot(test_pred_orig_dict[list(test_pred_orig_dict.keys())[0]][0][:, 0].data.tolist(), label='pred')  # predicted
-plt.plot(test_pred_orig_dict[list(test_pred_orig_dict.keys())[0]][1][:, 0].data.tolist(), label='Ori')  # original
+# plt.plot(test_pred_orig_dict[list(test_pred_orig_dict.keys())[0]][0][:, 0].data.tolist(), label='pred')  # predicted
+# plt.plot(test_pred_orig_dict[list(test_pred_orig_dict.keys())[0]][1][:, 0].data.tolist(), label='Ori')  # original
+# plt.show()
+d = {'ori': test_pred_orig_dict[list(test_pred_orig_dict.keys())[0]][1][:, 0].data.tolist(),
+     'pred': test_pred_orig_dict[list(test_pred_orig_dict.keys())[0]][0][:, 0].data.tolist()}
+pred_df = pd.DataFrame(data=d)
+pred_df.to_csv(r'D:\1_GitHub\IoT_HeatIsland\multistep_lstm\saved_models\pred.csv')
+pred_df.plot()
+plt.xlabel('time (hour)')
+plt.ylabel('temperature (F)')
 plt.show()
+
+# getting r2 score for mode evaluation
+model_score = r2_score(pred_df.pred, pred_df.ori)
+print("R^2 Score: ", model_score)
 
 # calculate root mean squared error
 trainScores_stations = dict()
@@ -275,10 +290,14 @@ for key in test_data.keys:
                                                             test_pred_orig_dict[key][1].data.tolist()))
 
 print(max(trainScores_stations.values()))
+score_df = pd.DataFrame(trainScores_stations.values())
+score_df.to_csv(r'D:\1_GitHub\IoT_HeatIsland\multistep_lstm\saved_models\trainScores.csv')
 print(min(trainScores_stations.values()))
 
 print(max(testScores_stations.values()))
 print(min(testScores_stations.values()))
+score_df = pd.DataFrame(testScores_stations.values())
+score_df.to_csv(r'D:\1_GitHub\IoT_HeatIsland\multistep_lstm\saved_models\testScores.csv')
 
 # using 3-sigma for selecting high loss stations
 trainScores_stations_df = pd.DataFrame.from_dict(trainScores_stations, orient='index', columns=['value'])
