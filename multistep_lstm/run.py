@@ -69,11 +69,15 @@ if multi_variate_mode:
     ext_data_path = r'D:\IoT_HeatIsland\exp_data_bak\WU_preprocessed_LA\processed\byAttributes'
     for ext in ext_name:
         ext_df = pd.read_csv(ext_data_path + f'\{ext}.csv', index_col=['datetime'])
-        fill_missing(ext_df.values)
+        while ext_df.isnull().values.any():
+            fill_missing(ext_df.values)
+        print(f'NaN value in {ext} df?', ext_df.isnull().values.any())
         ext_data_scaled.append(min_max_scaler(ext_df))
     iot_wu_match_df = pd.read_csv(r'D:\IoT_HeatIsland\exp_data_bak\merged\iot_wu_colocate.csv', index_col=0)
 
-fill_missing(iot_df.values)
+while iot_df.isnull().values.any():
+    fill_missing(iot_df.values)
+print('NaN value in IoT df?', iot_df.isnull().values.any())
 
 '''all stations'''
 selected_vars = iot_sensors

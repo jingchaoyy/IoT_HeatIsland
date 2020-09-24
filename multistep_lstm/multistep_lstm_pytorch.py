@@ -122,6 +122,7 @@ class Dataset_multivariate:
             ext_match = reduce(lambda left, right: pd.merge(left, right, left_index=True, right_index=True), ext_match)
             ext_match.index = pd.to_datetime(ext_match.index, format='%m/%d/%Y %H:%M').strftime('%Y-%m-%d %H:%M:%S')
             merged = merged.join(ext_match)
+            merged = merged.dropna()
             merged = merged.sort_index().values
             merged[:, 0] = (merged[:, 0] - self.min) / (self.max - self.min)
 
