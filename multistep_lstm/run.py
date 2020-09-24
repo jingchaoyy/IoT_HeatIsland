@@ -53,6 +53,7 @@ def min_max_scaler(df):
 '''pytorch'''
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 multi_variate_mode = True
+load_model = True
 
 '''data'''
 geohash_df = pd.read_csv(r'D:\IoT_HeatIsland\exp_data_bak\merged\nodes_missing_5percent.csv',
@@ -141,7 +142,7 @@ print("Training input and output for each station: %s, %s" % (train_data[0][0].s
 print("Validation input and output for each station: %s, %s" % (train_data[0][2].shape, train_data[0][3].shape))
 print("Testing input and output for each station: %s, %s" % (test_data[0][0].shape, test_data[0][1].shape))
 
-# initialize the model
+'''initialize the model'''
 num_epochs = 15
 epoch_interval = 1
 # https://towardsdatascience.com/choosing-the-right-hyperparameters-for-a-simple-lstm-using-keras-f8e9ed76f046
@@ -151,81 +152,87 @@ loss_func, model, optimizer = multistep_lstm_pytorch.initial_model(input_size=tr
                                                                    hidden_size=hidden_size,
                                                                    output_size=output_size,
                                                                    learning_rate=0.001)
-train_loss, test_loss, mean_loss_train, mean_test_loss = [], [], [], []
-min_val_loss, mean_min_val_loss = np.Inf, np.Inf
-n_epochs_stop = 3
-epochs_no_improve = 0
-early_stop = False
+if not load_model:
+    train_loss, test_loss, mean_loss_train, mean_test_loss = [], [], [], []
+    min_val_loss, mean_min_val_loss = np.Inf, np.Inf
+    n_epochs_stop = 3
+    epochs_no_improve = 0
+    early_stop = False
 
-start = time.time()
-# train the model
-for epoch in range(num_epochs):
-    running_loss_train = []
-    running_loss_val = []
-    loss2 = 0
-    for idx in range(len(train_data)):
-        train_loader = DataLoader(TensorDataset(train_data[idx][0][:, :, 0, :].to(device),
-                                                train_data[idx][1][:, :, 0, :].to(device)),
-                                  shuffle=True, batch_size=1000, drop_last=True)
-        val_loader = DataLoader(TensorDataset(train_data[idx][2][:, :, 0, :].to(device),
-                                              train_data[idx][3][:, :, 0, :].to(device)),
-                                shuffle=True, batch_size=400, drop_last=True)
-        loss1 = multistep_lstm_pytorch.train_LSTM(train_loader, model, loss_func, optimizer,
-                                                  epoch)  # calculate train_loss
-        loss2 = multistep_lstm_pytorch.test_LSTM(val_loader, model, loss_func, optimizer, epoch)  # calculate test_loss
-        running_loss_train.append(sum(loss1))
-        running_loss_val.append(sum(loss2))
-        train_loss.extend(loss1)
-        test_loss.extend(loss2)
+    start = time.time()
+    # train the model
+    for epoch in range(num_epochs):
+        running_loss_train = []
+        running_loss_val = []
+        loss2 = 0
+        for idx in range(len(train_data)):
+            train_loader = DataLoader(TensorDataset(train_data[idx][0][:, :, 0, :].to(device),
+                                                    train_data[idx][1][:, :, 0, :].to(device)),
+                                      shuffle=True, batch_size=1000, drop_last=True)
+            val_loader = DataLoader(TensorDataset(train_data[idx][2][:, :, 0, :].to(device),
+                                                  train_data[idx][3][:, :, 0, :].to(device)),
+                                    shuffle=True, batch_size=400, drop_last=True)
+            loss1 = multistep_lstm_pytorch.train_LSTM(train_loader, model, loss_func, optimizer,
+                                                      epoch)  # calculate train_loss
+            loss2 = multistep_lstm_pytorch.test_LSTM(val_loader, model, loss_func, optimizer, epoch)  # calculate test_loss
+            running_loss_train.append(sum(loss1))
+            running_loss_val.append(sum(loss2))
+            train_loss.extend(loss1)
+            test_loss.extend(loss2)
 
-        if mean(loss2) < min_val_loss:
-            # Save the model
-            # torch.save(model)
-            epochs_no_improve = 0
-            min_val_loss = mean(loss2)
+            if mean(loss2) < min_val_loss:
+                # Save the model
+                # torch.save(model)
+                epochs_no_improve = 0
+                min_val_loss = mean(loss2)
 
-        else:
-            epochs_no_improve += 1
+            else:
+                epochs_no_improve += 1
 
-        if epoch > 5 and epochs_no_improve == n_epochs_stop:
-            print('Early stopping!')
-            early_stop = True
+            if epoch > 5 and epochs_no_improve == n_epochs_stop:
+                print('Early stopping!')
+                early_stop = True
+                break
+            else:
+                continue
+
+        mean_loss_train.append(mean(running_loss_train))
+        mean_test_loss.append(mean(running_loss_val))
+        if epoch % epoch_interval == 0:
+            print(
+                "Epoch: %d, train_loss: %1.5f, val_loss: %1.5f" % (epoch, mean(running_loss_train), mean(running_loss_val)))
+            if mean(running_loss_val) < mean_min_val_loss:
+                mean_min_val_loss = mean(running_loss_val)
+            else:
+                print('Early stopping!')
+                early_stop = True
+        if early_stop:
+            print("Stopped")
             break
-        else:
-            continue
 
-    mean_loss_train.append(mean(running_loss_train))
-    mean_test_loss.append(mean(running_loss_val))
-    if epoch % epoch_interval == 0:
-        print(
-            "Epoch: %d, train_loss: %1.5f, val_loss: %1.5f" % (epoch, mean(running_loss_train), mean(running_loss_val)))
-        if mean(running_loss_val) < mean_min_val_loss:
-            mean_min_val_loss = mean(running_loss_val)
-        else:
-            print('Early stopping!')
-            early_stop = True
-    if early_stop:
-        print("Stopped")
-        break
+    end = time.time()
+    print(end - start)
 
-end = time.time()
-print(end - start)
+    print(model)
 
-print(model)
+    plt.plot(train_loss)
+    plt.plot(test_loss)
+    plt.show()
 
-plt.plot(train_loss)
-plt.plot(test_loss)
-plt.show()
+    plt.plot(mean_loss_train)
+    plt.plot(mean_test_loss)
+    plt.show()
 
-plt.plot(mean_loss_train)
-plt.plot(mean_test_loss)
-plt.show()
+    # save trained model
+    modelName = int(time.time())
+    torch.save(model.state_dict(), r'D:\1_GitHub\IoT_HeatIsland\multistep_lstm\saved_models'
+                                   f'\\ep{num_epochs}_neu{hidden_size}_pred{output_size}_{modelName}.pt')
+    print('model saved')
+else:
+    model_path = r'E:\IoT_HeatIsland_Data\data\LA\exp_data\result_multi_point_prediction' \
+                 r'\fillmiss_humidity_windSpeed_6neurons_epoch6_24_1\ep15_neu6_pred1_1600364827.pt'
+    model.load_state_dict(torch.load(model_path))
 
-# save trained model
-modelName = int(time.time())
-torch.save(model.state_dict(), r'D:\1_GitHub\IoT_HeatIsland\multistep_lstm\saved_models'
-                               f'\\ep{num_epochs}_neu{hidden_size}_pred{output_size}_{modelName}.pt')
-print('model saved')
 
 # Predict the training dataset of training stations and testing dataset of testing stations
 train_pred_orig_dict = dict()
@@ -272,17 +279,29 @@ print("R^2 Score: ", model_score)
 trainScores_stations, trainScores_stations_mae = dict(), dict()
 testScores_stations, testScores_stations_mae = dict(), dict()
 
+# for key in train_data.keys:
+#     trainScores_stations[key] = math.sqrt(mean_squared_error(train_pred_orig_dict[key][0].data.tolist(),
+#                                                              train_pred_orig_dict[key][1].data.tolist()))
+#     testScores_stations_mae[key] = mean_absolute_error(train_pred_orig_dict[key][0].data.tolist(),
+#                                                        train_pred_orig_dict[key][1].data.tolist())
+#
+# for key in test_data.keys:
+#     testScores_stations[key] = math.sqrt(mean_squared_error(test_pred_orig_dict[key][0].data.tolist(),
+#                                                             test_pred_orig_dict[key][1].data.tolist()))
+#     testScores_stations_mae[key] = mean_absolute_error(test_pred_orig_dict[key][0].data.tolist(),
+#                                                        test_pred_orig_dict[key][1].data.tolist())
+
 for key in train_data.keys:
-    trainScores_stations[key] = math.sqrt(mean_squared_error(train_pred_orig_dict[key][0].data.tolist(),
-                                                             train_pred_orig_dict[key][1].data.tolist()))
-    testScores_stations_mae[key] = mean_absolute_error(train_pred_orig_dict[key][0].data.tolist(),
-                                                       train_pred_orig_dict[key][1].data.tolist())
+    trainScores_stations[key] = math.sqrt(mean_squared_error((train_pred_orig_dict[key][0].data.cpu().numpy() - 32) * 5.0/9.0,
+                                                             (train_pred_orig_dict[key][1].data.cpu().numpy() - 32) * 5.0/9.0))
+    trainScores_stations_mae[key] = mean_absolute_error((train_pred_orig_dict[key][0].data.cpu().numpy() - 32) * 5.0/9.0,
+                                                       (train_pred_orig_dict[key][1].data.cpu().numpy() - 32) * 5.0/9.0)
 
 for key in test_data.keys:
-    testScores_stations[key] = math.sqrt(mean_squared_error(test_pred_orig_dict[key][0].data.tolist(),
-                                                            test_pred_orig_dict[key][1].data.tolist()))
-    testScores_stations_mae[key] = mean_absolute_error(test_pred_orig_dict[key][0].data.tolist(),
-                                                       test_pred_orig_dict[key][1].data.tolist())
+    testScores_stations[key] = math.sqrt(mean_squared_error((test_pred_orig_dict[key][0].data.cpu().numpy() - 32) * 5.0/9.0,
+                                                            (test_pred_orig_dict[key][1].data.cpu().numpy() - 32) * 5.0/9.0))
+    testScores_stations_mae[key] = mean_absolute_error((test_pred_orig_dict[key][0].data.cpu().numpy() - 32) * 5.0/9.0,
+                                                       (test_pred_orig_dict[key][1].data.cpu().numpy() - 32) * 5.0/9.0)
 
 print('max train RMSE', max(trainScores_stations.values()))
 print('min train RMSE', min(trainScores_stations.values()))
@@ -294,8 +313,8 @@ print('min test RMSE', min(testScores_stations.values()))
 score_df = pd.DataFrame(testScores_stations.values())
 score_df.to_csv(r'D:\1_GitHub\IoT_HeatIsland\multistep_lstm\saved_models\testScores.csv')
 
-print('max train MAE', max(testScores_stations_mae.values()))
-print('min train MAE', min(testScores_stations_mae.values()))
+print('max train MAE', max(trainScores_stations_mae.values()))
+print('min train MAE', min(trainScores_stations_mae.values()))
 print('max test MAE', max(testScores_stations_mae.values()))
 print('min test MAE', min(testScores_stations_mae.values()))
 
