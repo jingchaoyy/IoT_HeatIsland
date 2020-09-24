@@ -17,11 +17,14 @@ from numpy import isnan
 import seaborn as sns
 from sklearn.metrics import r2_score
 from singlestep_all import get_data
+from sklearn.metrics import mean_absolute_error
 
 # extract only one variable
 # aggr_df = pd.read_csv('/Users/jc/Documents/GitHub/Fresh-Air-LA/data/aggr_la_aq_preprocessed.csv', index_col=False)
 # variable = '060371103_PM2.5'
 # uni_data = aggr_df[variable].values.reshape(-1, 1)
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 iot_sensors, iot_df = get_data.get_data()
 
@@ -64,8 +67,8 @@ for coor in [iot_sensors[0]]:
                                                                        learning_rate=0.001)
     train_loss, test_loss = [], []
 
-    train_loader = DataLoader(TensorDataset(x_train, y_train), shuffle=True, batch_size=1000)
-    test_loader = DataLoader(TensorDataset(x_test, y_test), shuffle=True, batch_size=400)
+    train_loader = DataLoader(TensorDataset(x_train.to(device), y_train.to(device)), shuffle=True, batch_size=1000)
+    test_loader = DataLoader(TensorDataset(x_test.to(device), y_test.to(device)), shuffle=True, batch_size=400)
 
     for idx, data in enumerate(train_loader):
         print(idx, data[0].shape, data[1].shape)
@@ -90,12 +93,12 @@ for coor in [iot_sensors[0]]:
     # model.eval()
     with torch.no_grad():
         train_pred = model(x_train)
-        train_pred_trans = train_pred * (norm_max - norm_min) + norm_min
-        trainY_trans = y_train.reshape(train_pred.shape) * (norm_max - norm_min) + norm_min
+        train_pred_trans = ((train_pred.cpu().detach().numpy() * (norm_max - norm_min) + norm_min) - 32) * 5.0/9.0
+        trainY_trans = ((y_train.reshape(train_pred.shape).cpu().detach().numpy() * (norm_max - norm_min) + norm_min) - 32) * 5.0/9.0
 
         test_pred = model(x_test)
-        test_pred_trans = test_pred * (norm_max - norm_min) + norm_min
-        testY_trans = y_test.reshape(test_pred.shape) * (norm_max - norm_min) + norm_min
+        test_pred_trans = ((test_pred.cpu().detach().numpy() * (norm_max - norm_min) + norm_min) - 32) * 5.0/9.0
+        testY_trans = ((y_test.reshape(test_pred.shape).cpu().detach().numpy() * (norm_max - norm_min) + norm_min) - 32) * 5.0/9.0
 
     # plot baseline and predictions
     plt.plot(trainY_trans[:, 0])
@@ -113,12 +116,14 @@ for coor in [iot_sensors[0]]:
     testScore = math.sqrt(mean_squared_error(testY_trans, test_pred_trans))
     print('Test Score: %.2f RMSE' % (testScore))
 
-    temp = testY_trans - test_pred_trans
-    np.mean(abs(temp.numpy()), axis=0)
+    trainScore_mae = mean_absolute_error(trainY_trans, train_pred_trans)
+    print('Train Score: %.2f MAE' % (trainScore_mae))
+    testScore_mae = mean_absolute_error(testY_trans, test_pred_trans)
+    print('Test Score: %.2f MAE' % (testScore_mae))
 
     '''save to csv'''
     save_path = '/Volumes/Samsung_T5/IoT_HeatIsland_Data/data/LA/exp_data/result_single_point_prediction/lstm/'
-    testscore_dict = {'ori': testY_trans,
-                      'pred': test_pred_trans}
+    testscore_dict = {'ori': testY_trans[:,0],
+                      'pred': test_pred_trans[:,0]}
     testscore_df = pd.DataFrame(data=testscore_dict)
     testscore_df.to_csv(save_path + 'pred.csv')
