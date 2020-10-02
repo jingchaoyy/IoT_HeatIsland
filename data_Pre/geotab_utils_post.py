@@ -54,17 +54,18 @@ def my_csv_reader(path, uni_ind):
 # con_df['datetime'] = pd.to_datetime(con_df['datetime'], format='%Y%m%d%H')
 # con_df = con_df.sort_values(by=['datetime'])
 
-'''establishing preInt matrix'''
-uni_ind_load = pd.read_csv(r'E:\IoT_HeatIsland_Data\data\Atlanta\dataHarvest_Atlanta\processed\uniqueNodes.csv',
-                           index_col='Geohash', usecols=['Geohash'])
 
-files = glob.glob(r'E:\IoT_HeatIsland_Data\data\Atlanta\dataHarvest_Atlanta\processed' + '\\20*.csv')
+process_path = r'E:\IoT_HeatIsland_Data\data\NYC\dataHarvest_NYC\processed'
+
+'''establishing preInt matrix'''
+uni_ind_load = pd.read_csv(process_path + r'\uniqueNodes.csv', index_col='Geohash', usecols=['Geohash'])
+files = glob.glob(process_path + r'\20*.csv')
 df = pd.concat([my_csv_reader(f, uni_ind_load) for f in files], axis=1, join='inner')
-df.T.to_csv(r'E:\IoT_HeatIsland_Data\data\Atlanta\dataHarvest_Atlanta\processed\preInt_matrix.csv')
+df.T.to_csv(process_path + r'\preInt_matrix.csv')
 print('preInt matrix established')
 
 # '''load preInt matrix'''
-con_df = pd.read_csv(r'E:\IoT_HeatIsland_Data\data\Atlanta\dataHarvest_Atlanta\processed\preInt_matrix.csv')
+con_df = pd.read_csv(process_path + r'\preInt_matrix.csv')
 con_df.rename(columns={'Unnamed: 0': "datetime"}, inplace=True)
 con_df['datetime'] = pd.to_datetime(con_df['datetime'], format='%Y%m%d%H')
 con_df = con_df.sort_values(by=['datetime'])
@@ -77,16 +78,17 @@ rng['datetime'] = pd.date_range(start=start, end=end, freq='H')
 
 joined = rng.set_index('datetime').join(con_df.set_index('datetime'))
 # joined = joined.reset_index()
-joined.reset_index().to_csv(r'E:\IoT_HeatIsland_Data\data\Atlanta\dataHarvest_Atlanta\processed\preInt_matrix_full.csv')
+joined.reset_index().to_csv(process_path + r'\preInt_matrix_full.csv')
+print('full preInt matrix established')
 
 # '''missing data percentage'''
-# joined = pd.read_csv(r'E:\IoT_HeatIsland_Data\data\Atlanta\dataHarvest_Atlanta\processed\preInt_matrix_full.csv', index_col=0)
+# joined = pd.read_csv(process_path + r'\preInt_matrix_full.csv', index_col=0)
 data_missing = joined.isna().mean().round(4) * 100
 selected = joined.loc[:, data_missing < 5].columns.values.tolist()
-data_all = pd.read_csv(r'E:\IoT_HeatIsland_Data\data\Atlanta\dataHarvest_Atlanta\processed\preInt_matrix_full.csv',
-                       usecols=selected)
+data_all = pd.read_csv(process_path + r'\preInt_matrix_full.csv', usecols=selected)
 selected_df = pd.DataFrame({'Geohash': selected[1:]})
-coor = pd.read_csv(r'E:\IoT_HeatIsland_Data\data\Atlanta\dataHarvest_Atlanta\processed\uniqueNodes.csv')
+coor = pd.read_csv(process_path + r'\uniqueNodes.csv')
 selected_coor = selected_df.set_index('Geohash').join(coor.set_index('Geohash'))
 selected_coor = selected_coor.reset_index()
-selected_coor.to_csv(r'E:\IoT_HeatIsland_Data\data\Atlanta\dataHarvest_Atlanta\processed\nodes_missing_5percent.csv')
+selected_coor.to_csv(process_path + r'\nodes_missing_5percent.csv')
+print('station with missing data < 5% selected')
