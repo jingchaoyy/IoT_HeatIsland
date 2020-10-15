@@ -114,10 +114,10 @@ def plot_results(predicted_data, true_data, model_type='xgboost'):
 
 def get_data():
     geohash_df = pd.read_csv(
-        '/Volumes/Samsung_T5/IoT_HeatIsland_Data/data/LA/dataHarvest/merged/nodes_missing_5percent.csv',
+        r'E:\IoT_HeatIsland_Data\data\LA\dataHarvest\merged\nodes_missing_5percent.csv',
         usecols=['Geohash'])
     iot_sensors = geohash_df.values.reshape(-1)
-    iot_df = pd.read_csv('/Volumes/Samsung_T5/IoT_HeatIsland_Data/data/LA/dataHarvest/merged/tempMatrix_LA_2019_20.csv',
+    iot_df = pd.read_csv(r'E:\IoT_HeatIsland_Data\data\LA\dataHarvest\merged\tempMatrix_LA_2019_20.csv',
                          usecols=['datetime'] + iot_sensors.tolist(), index_col=['datetime'])
     fill_missing(iot_df.values)
 
