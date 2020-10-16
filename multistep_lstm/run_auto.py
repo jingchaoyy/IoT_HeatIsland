@@ -13,6 +13,7 @@ from statistics import mean
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 from multistep_lstm import multistep_lstm_pytorch
+# import multistep_lstm_pytorch as multistep_lstm_pytorch
 from sklearn import preprocessing
 import numpy as np
 from numpy import isnan
@@ -57,15 +58,23 @@ def min_max_scaler(df):
 '''pytorch'''
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 multi_variate_mode = True
-load_model = True
 
 '''data'''
-model_load_path = r'E:\IoT_HeatIsland_Data\data\NYC\exp_data\NYC_NYC'
-out_path = r'E:\IoT_HeatIsland_Data\data\NYC\exp_data\NYC_LA'
+# # self-training and test path
+# load_model = False
+# out_path = r'E:\IoT_HeatIsland_Data\data\NYC\exp_data\NYC_NYC_12neuron'
+# exp_path = r'D:\IoT_HeatIsland\iotTemp_exp_bak\exp_data\NYC'
+# iot_path = exp_path + r'\IoT'
+# wu_path = exp_path + r'\WU'
 
-iot_path = r'D:\IoT_HeatIsland\iotTemp_exp_bak\exp_data\LA\IoT'
-wu_path = r'D:\IoT_HeatIsland\iotTemp_exp_bak\exp_data\LA\WU'
+# trans mode test path
+load_model = True
+model_load_path = r'E:\IoT_HeatIsland_Data\data\NYC\exp_data\NYC_NYC_12neuron'
+out_path = r'E:\IoT_HeatIsland_Data\data\NYC\exp_data\NYC_NYC_12neuron\trans_model_test\LA'
 exp_path = r'D:\IoT_HeatIsland\iotTemp_exp_bak\exp_data\LA'
+iot_path = exp_path + r'\IoT'
+wu_path = exp_path + r'\WU'
+
 
 geohash_df = pd.read_csv(iot_path + r'\nodes_missing_5percent.csv',
                          usecols=['Geohash'])
@@ -113,7 +122,7 @@ print('normalized dataset min, max', dataset.min(), dataset.max())
 '''start experiments'''
 # experiments = [(24, 1), (24, 4), (24, 8), (24, 12), (36, 12), (48, 12), (72, 12), (72, 24), (72, 36), (72, 48),
 #                (120, 48), (144, 48), (120, 72), (144, 72), (168, 120)]
-experiments = [(24, 1), (24, 4), (24, 8), (24, 12), (36, 12), (48, 12), (72, 12), (72, 24), (72, 36), (72, 48)]
+experiments = [(48, 12), (120, 48)]
 
 for exp in range(len(experiments)):
     train_window, output_size = experiments[exp]
@@ -176,7 +185,7 @@ for exp in range(len(experiments)):
     epoch_interval = 1
     # https://towardsdatascience.com/choosing-the-right-hyperparameters-for-a-simple-lstm-using-keras-f8e9ed76f046
     # hidden_size = int((2/3)*(train_window*len(ext_data_scaled)+1))
-    hidden_size = 6
+    hidden_size = 12
     loss_func, model, optimizer = multistep_lstm_pytorch.initial_model(input_size=train_data[0][0].shape[-1],
                                                                        hidden_size=hidden_size,
                                                                        output_size=output_size,
