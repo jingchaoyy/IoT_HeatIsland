@@ -13,7 +13,9 @@ from statistics import mean
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 from multistep_lstm import multistep_lstm_pytorch
+from multistep_lstm import model_train
 # import multistep_lstm_pytorch as multistep_lstm_pytorch
+# import model_train as model_train
 from sklearn import preprocessing
 import numpy as np
 from numpy import isnan
@@ -24,54 +26,24 @@ import os
 import glob
 
 
-def fill_missing(values):
-    """
-    fill missing values with a value at the same time one day ago
-
-    :param values:
-    :return:
-    """
-    one_day = 24
-    for row in range(values.shape[0]):
-        for col in range(values.shape[1]):
-            if isnan(values[row, col]):
-                values[row, col] = values[row - one_day, col]
-
-
-def min_max_scaler(df):
-    """
-
-    :param df:
-    :return:
-    """
-    min_max_scaler = preprocessing.MinMaxScaler()
-    df_np = df.values
-    df_np_scaled = min_max_scaler.fit_transform(df_np)
-    df_scaled = pd.DataFrame(df_np_scaled)
-
-    df_scaled.index = df.index
-    df_scaled.columns = df.columns
-
-    return df_scaled
-
-
 '''pytorch'''
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cpu")
 multi_variate_mode = True
 
 '''data'''
 # # self-training and test path
 # load_model = False
-# out_path = r'E:\IoT_HeatIsland_Data\data\NYC\exp_data\NYC_NYC_12neuron'
-# exp_path = r'D:\IoT_HeatIsland\iotTemp_exp_bak\exp_data\NYC'
+# out_path = r'E:\IoT_HeatIsland_Data\data\Atlanta\exp_data\Atlanta_Atlanta_12neuron'
+# exp_path = r'D:\IoT_HeatIsland\iotTemp_exp_bak\exp_data\Atlanta'
 # iot_path = exp_path + r'\IoT'
 # wu_path = exp_path + r'\WU'
 
 # trans mode test path
 load_model = True
-model_load_path = r'E:\IoT_HeatIsland_Data\data\NYC\exp_data\NYC_NYC_12neuron'
-out_path = r'E:\IoT_HeatIsland_Data\data\NYC\exp_data\NYC_NYC_12neuron\trans_model_test\LA'
-exp_path = r'D:\IoT_HeatIsland\iotTemp_exp_bak\exp_data\LA'
+model_load_path = r'E:\IoT_HeatIsland_Data\data\Atlanta\exp_data\Atlanta_Atlanta_12neuron'
+out_path = r'E:\IoT_HeatIsland_Data\data\Atlanta\exp_data\Atlanta_Atlanta_12neuron\trans_model_test\Chicago_tuning'
+exp_path = r'D:\IoT_HeatIsland\iotTemp_exp_bak\exp_data\Chicago'
 iot_path = exp_path + r'\IoT'
 wu_path = exp_path + r'\WU'
 
@@ -90,13 +62,13 @@ if multi_variate_mode:
     for ext in ext_name:
         ext_df = pd.read_csv(ext_data_path + f'\{ext}.csv', index_col=['datetime'])
         while ext_df.isnull().values.any():
-            fill_missing(ext_df.values)
+            model_train.fill_missing(ext_df.values)
         print(f'NaN value in {ext} df?', ext_df.isnull().values.any())
-        ext_data_scaled.append(min_max_scaler(ext_df))
+        ext_data_scaled.append(model_train.min_max_scaler(ext_df))
     iot_wu_match_df = pd.read_csv(exp_path + r'\iot_wu_colocate.csv', index_col=0)
 
 while iot_df.isnull().values.any():
-    fill_missing(iot_df.values)
+    model_train.fill_missing(iot_df.values)
 print('NaN value in IoT df?', iot_df.isnull().values.any())
 
 '''all stations data preprocessing'''
@@ -122,7 +94,7 @@ print('normalized dataset min, max', dataset.min(), dataset.max())
 '''start experiments'''
 # experiments = [(24, 1), (24, 4), (24, 8), (24, 12), (36, 12), (48, 12), (72, 12), (72, 24), (72, 36), (72, 48),
 #                (120, 48), (144, 48), (120, 72), (144, 72), (168, 120)]
-experiments = [(48, 12), (120, 48)]
+experiments = [(48, 12)]
 
 for exp in range(len(experiments)):
     train_window, output_size = experiments[exp]
@@ -191,75 +163,7 @@ for exp in range(len(experiments)):
                                                                        output_size=output_size,
                                                                        learning_rate=0.001)
     if not load_model:
-        train_loss, test_loss, mean_loss_train, mean_test_loss = [], [], [], []
-        min_val_loss, mean_min_val_loss = np.Inf, np.Inf
-        n_epochs_stop = 3
-        epochs_no_improve = 0
-        early_stop = False
-
-        start = time.time()
-        # train the model
-        for epoch in range(num_epochs):
-            running_loss_train = []
-            running_loss_val = []
-            loss2 = 0
-            for idx in range(len(train_data)):
-                train_loader = DataLoader(TensorDataset(train_data[idx][0][:, :, 0, :].to(device),
-                                                        train_data[idx][1][:, :, 0, :].to(device)),
-                                          shuffle=True, batch_size=1000, drop_last=True)
-                val_loader = DataLoader(TensorDataset(train_data[idx][2][:, :, 0, :].to(device),
-                                                      train_data[idx][3][:, :, 0, :].to(device)),
-                                        shuffle=True, batch_size=400, drop_last=True)
-                loss1 = multistep_lstm_pytorch.train_LSTM(train_loader, model, loss_func, optimizer,
-                                                          epoch)  # calculate train_loss
-                loss2 = multistep_lstm_pytorch.test_LSTM(val_loader, model, loss_func, optimizer, epoch)  # calculate test_loss
-                running_loss_train.append(sum(loss1))
-                running_loss_val.append(sum(loss2))
-                train_loss.extend(loss1)
-                test_loss.extend(loss2)
-
-                if mean(loss2) < min_val_loss:
-                    # Save the model
-                    # torch.save(model)
-                    epochs_no_improve = 0
-                    min_val_loss = mean(loss2)
-
-                else:
-                    epochs_no_improve += 1
-
-                if epoch > 5 and epochs_no_improve == n_epochs_stop:
-                    print('Early stopping!')
-                    early_stop = True
-                    break
-                else:
-                    continue
-
-            mean_loss_train.append(mean(running_loss_train))
-            mean_test_loss.append(mean(running_loss_val))
-            if epoch % epoch_interval == 0:
-                print(
-                    "Epoch: %d, train_loss: %1.5f, val_loss: %1.5f" % (epoch, mean(running_loss_train), mean(running_loss_val)))
-                if mean(running_loss_val) < mean_min_val_loss:
-                    mean_min_val_loss = mean(running_loss_val)
-                else:
-                    print('Early stopping!')
-                    early_stop = True
-            if early_stop:
-                print("Stopped")
-                break
-
-        end = time.time()
-        print(end - start)
-
-        print(model)
-
-        # plt.plot(train_loss)
-        # plt.plot(test_loss)
-        # plt.show()
-        #
-        # plt.plot(mean_loss_train)
-        # plt.plot(mean_test_loss)
-        # plt.show()
+        model = model_train.start_training(model, train_data, device, loss_func, optimizer, num_epochs)
 
         # save trained model
         modelName = int(time.time())
@@ -269,6 +173,7 @@ for exp in range(len(experiments)):
         model_path = glob.glob(model_load_path + f'\\{str(train_window)}_{str(output_size)}' + r'\*.pt')
         model.load_state_dict(torch.load(model_path[0]))
         model.eval()
+        model = model_train.start_training(model, train_data, device, loss_func, optimizer, num_epochs)
 
     # Predict the training dataset of training stations and testing dataset of testing stations
     train_pred_orig_dict = dict()
@@ -309,57 +214,38 @@ for exp in range(len(experiments)):
 
     # getting r2 score for mode evaluation
     model_score = r2_score(pred_df.pred, pred_df.ori)
-    print("R^2 Score: ", model_score)
+    print("R^2: ", model_score)
 
     # calculate root mean squared error
-    trainScores_stations, trainScores_stations_mae = dict(), dict()
-    testScores_stations, testScores_stations_mae = dict(), dict()
+    rmse_by_station_train, mae_by_station_train, rmse_by_hour_train, mae_by_hour_train = model_train.result_evaluation(
+        train_pred_orig_dict)
+    rmse_by_station_test, mae_by_station_test, rmse_by_hour_test, mae_by_hour_test = model_train.result_evaluation(
+        test_pred_orig_dict)
 
-    # for key in train_data.keys:
-    #     trainScores_stations[key] = math.sqrt(mean_squared_error(train_pred_orig_dict[key][0].data.tolist(),
-    #                                                              train_pred_orig_dict[key][1].data.tolist()))
-    #     testScores_stations_mae[key] = mean_absolute_error(train_pred_orig_dict[key][0].data.tolist(),
-    #                                                        train_pred_orig_dict[key][1].data.tolist())
-    #
-    # for key in test_data.keys:
-    #     testScores_stations[key] = math.sqrt(mean_squared_error(test_pred_orig_dict[key][0].data.tolist(),
-    #                                                             test_pred_orig_dict[key][1].data.tolist()))
-    #     testScores_stations_mae[key] = mean_absolute_error(test_pred_orig_dict[key][0].data.tolist(),
-    #                                                        test_pred_orig_dict[key][1].data.tolist())
+    '''RMSE'''
+    rmse_by_station_train.to_csv(output_path + r'\trainScores_C.csv')
+    np.savetxt(output_path + r'\trainScores_C_by_hour.csv', rmse_by_hour_train, delimiter=",")
 
-    for key in train_data.keys:
-        trainScores_stations[key] = math.sqrt(mean_squared_error((train_pred_orig_dict[key][0].data.cpu().numpy() - 32) * 5.0/9.0,
-                                                                 (train_pred_orig_dict[key][1].data.cpu().numpy() - 32) * 5.0/9.0))
-        trainScores_stations_mae[key] = mean_absolute_error((train_pred_orig_dict[key][0].data.cpu().numpy() - 32) * 5.0/9.0,
-                                                           (train_pred_orig_dict[key][1].data.cpu().numpy() - 32) * 5.0/9.0)
+    print('max test RMSE', round(rmse_by_station_test.max(), 2))
+    print('min test RMSE', round(rmse_by_station_test.min(), 2))
+    rmse_by_station_test.to_csv(output_path + r'\testScores_C.csv')
+    np.savetxt(output_path + r'\testScores_C_by_hour.csv', rmse_by_hour_test, delimiter=",")
 
-    for key in test_data.keys:
-        testScores_stations[key] = math.sqrt(mean_squared_error((test_pred_orig_dict[key][0].data.cpu().numpy() - 32) * 5.0/9.0,
-                                                                (test_pred_orig_dict[key][1].data.cpu().numpy() - 32) * 5.0/9.0))
-        testScores_stations_mae[key] = mean_absolute_error((test_pred_orig_dict[key][0].data.cpu().numpy() - 32) * 5.0/9.0,
-                                                           (test_pred_orig_dict[key][1].data.cpu().numpy() - 32) * 5.0/9.0)
+    '''MAE'''
+    mae_by_station_train.to_csv(output_path + r'\trainScores_MAE_C.csv')
+    np.savetxt(output_path + r'\trainScores_MAE_C_by_hour.csv', mae_by_hour_train, delimiter=",")
 
-    print('max train RMSE', max(trainScores_stations.values()))
-    print('min train RMSE', min(trainScores_stations.values()))
-    score_df = pd.DataFrame(trainScores_stations.values())
-    score_df.to_csv(output_path + r'\trainScores_C.csv')
+    print('max test MAE', round(mae_by_station_test.max(), 2))
+    print('min test MAE', round(mae_by_station_test.min(), 2))
+    mae_by_station_test.to_csv(output_path + r'\testScores_MAE_C.csv')
+    np.savetxt(output_path + r'\testScores_MAE_C_by_hour.csv', mae_by_hour_test, delimiter=",")
 
-    print('max test RMSE', max(testScores_stations.values()))
-    print('min test RMSE', min(testScores_stations.values()))
-    score_df = pd.DataFrame(testScores_stations.values())
-    score_df.to_csv(output_path + r'\testScores_C.csv')
-
-    print('max train MAE', max(trainScores_stations_mae.values()))
-    print('min train MAE', min(trainScores_stations_mae.values()))
-    print('max test MAE', max(testScores_stations_mae.values()))
-    print('min test MAE', min(testScores_stations_mae.values()))
-
-    # using 3-sigma for selecting high loss stations
-    trainScores_stations_df = pd.DataFrame.from_dict(trainScores_stations, orient='index', columns=['value'])
-    sigma_3 = (3 * trainScores_stations_df.std() + trainScores_stations_df.mean()).values[0]
-    anomaly_iot_train = trainScores_stations_df.loc[trainScores_stations_df['value'] >= sigma_3]
-    print('High loss stations (train):', anomaly_iot_train)
-    testScores_stations_df = pd.DataFrame.from_dict(testScores_stations, orient='index', columns=['value'])
-    sigma_3 = (3 * testScores_stations_df.std() + testScores_stations_df.mean()).values[0]
-    anomaly_iot_test = testScores_stations_df.loc[testScores_stations_df['value'] >= sigma_3]
-    print('High loss stations (test):', anomaly_iot_test)
+    # # using 3-sigma for selecting high loss stations
+    # trainScores_stations_df = pd.DataFrame.from_dict(rmse_by_station_train, orient='index', columns=['value'])
+    # sigma_3 = (3 * trainScores_stations_df.std() + trainScores_stations_df.mean()).values[0]
+    # anomaly_iot_train = trainScores_stations_df.loc[trainScores_stations_df['value'] >= sigma_3]
+    # print('High loss stations (train):', anomaly_iot_train)
+    # testScores_stations_df = pd.DataFrame.from_dict(rmse_by_station_test, orient='index', columns=['value'])
+    # sigma_3 = (3 * testScores_stations_df.std() + testScores_stations_df.mean()).values[0]
+    # anomaly_iot_test = testScores_stations_df.loc[testScores_stations_df['value'] >= sigma_3]
+    # print('High loss stations (test):', anomaly_iot_test)
