@@ -144,5 +144,6 @@ def result_evaluation(model_output):
         mae_by_hour.append(mae_by_hour_temp)
         mae_by_station[key] = mean_absolute_error(pred_key, orig_key)
 
-        return pd.DataFrame(rmse_by_station.values()), pd.DataFrame(mae_by_station.values()), \
-               np.average(rmse_by_hour, axis=0), np.average(mae_by_hour, axis=0)
+    return pd.DataFrame.from_dict(rmse_by_station, orient='index', columns=['value']),\
+           pd.DataFrame.from_dict(mae_by_station, orient='index', columns=['value']),\
+           np.average(rmse_by_hour, axis=0), np.average(mae_by_hour, axis=0)
