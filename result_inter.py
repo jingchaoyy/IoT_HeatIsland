@@ -80,13 +80,13 @@ def line_plot(fpath):
 def save_RMSE(name, df, fpath):
     if path.exists(fpath):
         df_tem = pd.read_csv(fpath, index_col=['exp'])
-        df_tem[f'{name}_avg'] = df.mean()
+        df_tem[f'{name}_avg'] = df.median()
         df_tem.to_csv(fpath)
     else:
         df_tem = pd.DataFrame()
         # df[f'{name}_min'] = rmse_df.min().tolist()
         # df[f'{name}_max'] = rmse_df.max().tolist()
-        df_tem[f'{name}_avg'] = df.mean()
+        df_tem[f'{name}_avg'] = df.median()
         df_tem.index.name = 'exp'
         df_tem.to_csv(fpath)
 
@@ -103,7 +103,7 @@ experiments = [(24, 1), (24, 4), (24, 8), (24, 12), (36, 12), (48, 12), (72, 12)
 
 '''Save RMSE'''
 rmse_df = all_RMSE(model_load_path, experiments)
-save_RMSE(city, rmse_df, r'E:\IoT_HeatIsland_Data\data\zmodel_evaluation\local_RMSE\all_avg.csv')
+save_RMSE(city, rmse_df, r'E:\IoT_HeatIsland_Data\data\zmodel_evaluation\local_RMSE\all_med.csv')
 
 '''RMSE city comparison'''
 # rmse_df = all_RMSE(model_load_path, experiments)
